@@ -1,0 +1,58 @@
+{
+  "name": "mintlifier",
+  "version": "2.0.0",
+  "description": "Interactive CLI tool for building Mintlify docs.json configuration with 2024-2025 schema support",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "mintlifier": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test/test-runner.js",
+    "build-docs": "node scripts/build-docs.js"
+  },
+  "keywords": [
+    "mintlify",
+    "documentation",
+    "docs",
+    "cli",
+    "generator",
+    "configuration",
+    "versioning",
+    "openapi",
+    "swagger",
+    "mdx"
+  ],
+  "author": "Cordt <cordtus@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cordtus/mintlifier.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Cordtus/mintlifier/issues"
+  },
+  "homepage": "https://github.com/Cordtus/mintlifier#readme",
+  "dependencies": {
+    "@inquirer/prompts": "^7.8.3",
+    "chalk": "^5.6.0",
+    "fs-extra": "^11.3.1",
+    "ora": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "preferGlobal": false,
+  "files": [
+    "index.js",
+    "lib/",
+    "scripts/",
+    "workflow-templates/",
+    "docs-json-schema.json",
+    "docs-json-schema.d.ts",
+    "DOCS-JSON-SCHEMA.md",
+    "LICENSE",
+    "README.md"
+  ]
+}

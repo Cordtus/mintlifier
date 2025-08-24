@@ -1,0 +1,74 @@
+{
+  "name": "Mintlifier",
+  "favicon": "/favicon.svg",
+  "theme": "venus",
+  "layout": "sidenav",
+  "rounded": "default",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373",
+    "background": {
+      "light": "#FFFFFF",
+      "dark": "#0F1117"
+    }
+  },
+  "logo": "/logo.svg",
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "introduction",
+        "installation",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Features",
+      "pages": [
+        "configuration",
+        "versioning",
+        "automation",
+        "api-docs"
+      ]
+    }
+  ],
+  "tabs": [
+    {
+      "name": "Documentation",
+      "url": "docs"
+    },
+    {
+      "name": "Release Notes",
+      "url": "changelog/release-notes"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/Cordtus/mintlifier"
+    }
+  ],
+  "footer": {
+    "socials": {
+      "github": "https://github.com/cordt/mintlifier"
+    }
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
+  "search": {
+    "prompt": "Search Mintlifier docs...",
+    "location": "side"
+  },
+  "modeToggle": {
+    "default": "dark",
+    "isHidden": false
+  },
+  "versions": [
+    "v1.0.0"
+  ]
+}

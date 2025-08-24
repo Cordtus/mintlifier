@@ -1,0 +1,78 @@
+name: Sync Changelog to Docs
+
+on:
+  repository_dispatch:
+    types: [release-published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to sync'
+        required: true
+        type: string
+
+jobs:
+  sync-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout docs repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Fetch changelog
+        id: fetch-changelog
+        run: |
+          # Get the release tag from either repository_dispatch or workflow_dispatch
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            RELEASE_TAG="${{ github.event.client_payload.tag_name }}"
+          else
+            RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+          fi
+
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+
+          # Fetch the entire CHANGELOG.md from the repo main branch
+          # We always pull from main to get the complete changelog
+          curl -s "https://raw.githubusercontent.com/undefined/undefined/main/CHANGELOG.md" > tmp/changelog.md
+
+          if [ ! -s tmp/changelog.md ]; then
+            echo "Failed to fetch changelog or changelog is empty"
+            exit 1
+          fi
+
+          echo "Successfully fetched changelog ($(wc -l < tmp/changelog.md) lines)"
+
+      - name: Parse and convert changelog
+        id: convert
+        run: node scripts/parse-changelog.js
+
+      - name: Update changelog file
+        run: |
+          CHANGELOG_FILE="changelog/release-notes.mdx"
+
+          # Create directory if it doesn't exist
+          mkdir -p "$(dirname "$CHANGELOG_FILE")"
+
+          # Replace the entire file with the newly generated content
+          cp tmp/release-notes.mdx "$CHANGELOG_FILE"
+
+          echo "Changelog updated with $(grep -c '<Update' "$CHANGELOG_FILE") versions"
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add changelog/release-notes.mdx
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "docs: update changelog for ${{ steps.fetch-changelog.outputs.release_tag }}"
+            git push
+          fi

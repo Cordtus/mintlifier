@@ -1,0 +1,327 @@
+# Workflow: Documentation Automation (Combined)
+# This workflow can sync changelog and/or freeze versions based on triggers
+# Ensures proper sequencing: changelog sync → version freeze
+
+name: Documentation Automation
+
+on:
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - 'sync-changelog'
+          - 'freeze-version'
+          - 'both'
+      release_version:
+        description: 'Version to freeze (required for freeze/both)'
+        required: false
+      next_version:
+        description: 'Next development version (required for freeze/both)'
+        required: false
+      source_version:
+        description: 'Source version for changelog (default: latest)'
+        required: false
+        default: 'latest'
+        
+  # External repository trigger
+  repository_dispatch:
+    types: [docs-automation]
+    # Payload should include:
+    # - action: 'sync-changelog' | 'freeze-version' | 'both'
+    # - release_version: version to freeze (if freezing)
+    # - next_version: next development version (if freezing)
+    # - source_version: source for changelog (optional)
+
+  # Trigger on new releases in this repo
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  determine-action:
+    runs-on: ubuntu-latest
+    outputs:
+      action: ${{ steps.determine.outputs.action }}
+      release_version: ${{ steps.determine.outputs.release_version }}
+      next_version: ${{ steps.determine.outputs.next_version }}
+      source_version: ${{ steps.determine.outputs.source_version }}
+    
+    steps:
+      - name: Determine action and parameters
+        id: determine
+        run: |
+          # Handle different trigger types
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # On release, do both changelog sync and version freeze
+            ACTION="both"
+            RELEASE_VERSION="${{ github.event.release.tag_name }}"
+            # Generate next version (increment patch by default)
+            NEXT_VERSION=$(echo "$RELEASE_VERSION" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+            SOURCE_VERSION="$RELEASE_VERSION"
+            
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # External trigger
+            ACTION="${{ github.event.client_payload.action }}"
+            RELEASE_VERSION="${{ github.event.client_payload.release_version }}"
+            NEXT_VERSION="${{ github.event.client_payload.next_version }}"
+            SOURCE_VERSION="${{ github.event.client_payload.source_version || 'latest' }}"
+            
+          else
+            # Manual workflow dispatch
+            ACTION="${{ github.event.inputs.action }}"
+            RELEASE_VERSION="${{ github.event.inputs.release_version }}"
+            NEXT_VERSION="${{ github.event.inputs.next_version }}"
+            SOURCE_VERSION="${{ github.event.inputs.source_version || 'latest' }}"
+          fi
+          
+          # Validate required parameters
+          if [[ "$ACTION" == "freeze-version" || "$ACTION" == "both" ]]; then
+            if [ -z "$RELEASE_VERSION" ] || [ -z "$NEXT_VERSION" ]; then
+              echo " Error: release_version and next_version are required for version freezing"
+              exit 1
+            fi
+          fi
+          
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "source_version=$SOURCE_VERSION" >> $GITHUB_OUTPUT
+          
+          # Log determined parameters
+          echo " Determined Parameters:"
+          echo "  - Action: $ACTION"
+          echo "  - Release Version: $RELEASE_VERSION"
+          echo "  - Next Version: $NEXT_VERSION"
+          echo "  - Source Version: $SOURCE_VERSION"
+
+  sync-changelog:
+    needs: determine-action
+    if: needs.determine-action.outputs.action == 'sync-changelog' || needs.determine-action.outputs.action == 'both'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Sync changelog
+        id: sync
+        run: |
+          echo " Syncing changelog from ${{ needs.determine-action.outputs.source_version }}..."
+          
+          # Run the sync script
+          ./scripts/sync-changelog.sh "${{ needs.determine-action.outputs.source_version }}"
+          
+          # Check if there are changes
+          if [ -n "$(git status --porcelain changelog/)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            VERSION_COUNT=$(grep -c '<Update' changelog/release-notes.mdx || echo "0")
+            echo "version_count=$VERSION_COUNT" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit changelog changes
+        if: steps.sync.outputs.has_changes == 'true' && needs.determine-action.outputs.action == 'both'
+        run: |
+          # When doing both actions, commit changelog changes for the version freeze step
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add changelog/
+          git commit -m "docs: sync changelog from ${{ needs.determine-action.outputs.source_version }}"
+
+      - name: Create changelog PR
+        if: steps.sync.outputs.has_changes == 'true' && needs.determine-action.outputs.action == 'sync-changelog'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'docs: sync changelog from ${{ needs.determine-action.outputs.source_version }}'
+          title: ' Update Release Notes'
+          body: |
+            ##  Changelog Sync
+            
+            Updates release notes from source version: **${{ needs.determine-action.outputs.source_version }}**
+            
+            - Synced **${{ steps.sync.outputs.version_count }}** versions
+            - Source: `${{ needs.determine-action.outputs.source_version }}`
+          branch: changelog-sync-${{ github.run_id }}
+          delete-branch: true
+          labels: documentation, changelog, automated
+
+  freeze-version:
+    needs: [determine-action, sync-changelog]
+    if: |
+      always() &&
+      (needs.determine-action.outputs.action == 'freeze-version' || needs.determine-action.outputs.action == 'both') &&
+      (needs.sync-changelog.result == 'success' || needs.sync-changelog.result == 'skipped')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pull changelog updates (if both)
+        if: needs.determine-action.outputs.action == 'both'
+        run: |
+          # Pull any changelog updates from the previous job
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git pull --rebase
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Freeze version
+        id: freeze
+        run: |
+          RELEASE_VERSION="${{ needs.determine-action.outputs.release_version }}"
+          NEXT_VERSION="${{ needs.determine-action.outputs.next_version }}"
+          
+          # Check if already frozen
+          if [ -d "docs/$RELEASE_VERSION" ]; then
+            echo "already_frozen=true" >> $GITHUB_OUTPUT
+            echo " Version $RELEASE_VERSION is already frozen"
+            exit 0
+          fi
+          
+          echo " Freezing version $RELEASE_VERSION..."
+          
+          # Create version directory and copy docs
+          mkdir -p "docs/$RELEASE_VERSION"
+          
+          # Copy all MDX files and assets
+          find . -name "*.mdx" -not -path "./docs/v*/*" -not -path "./node_modules/*" -not -path "./mintlify-docs/*" | while read -r file; do
+            if [ "$(dirname "$file")" = "." ]; then
+              continue
+            fi
+            target="docs/$RELEASE_VERSION/${file#./}"
+            mkdir -p "$(dirname "$target")"
+            cp "$file" "$target"
+          done
+          
+          # Copy assets
+          for dir in images assets; do
+            if [ -d "$dir" ]; then
+              cp -r "$dir" "docs/$RELEASE_VERSION/"
+            fi
+          done
+          
+          # Update internal links
+          find "docs/$RELEASE_VERSION" -name "*.mdx" -type f -exec sed -i.bak "s|](/|](/docs/$RELEASE_VERSION/|g" {} \;
+          find "docs/$RELEASE_VERSION" -name "*.mdx.bak" -type f -delete
+          
+          # Create metadata
+          cat > "docs/$RELEASE_VERSION/.version-metadata.json" << EOF
+          {
+            "version": "$RELEASE_VERSION",
+            "frozenDate": "$(date '+%Y-%m-%d')",
+            "frozenTimestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+            "nextVersion": "$NEXT_VERSION",
+            "automated": true
+          }
+          EOF
+          
+          # Update mint.json
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('mint.json', 'utf8'));
+            
+            if (!config.versions) config.versions = [];
+            
+            // Remove and re-add versions
+            config.versions = config.versions.filter(v => 
+              (typeof v === 'string' ? v : v.name) !== '$RELEASE_VERSION'
+            );
+            
+            if (!config.versions.some(v => (typeof v === 'string' ? v : v.name) === '$NEXT_VERSION')) {
+              config.versions.unshift('$NEXT_VERSION');
+            }
+            
+            config.versions.push({
+              name: '$RELEASE_VERSION',
+              url: 'docs/' + '$RELEASE_VERSION'
+            });
+            
+            fs.writeFileSync('mint.json', JSON.stringify(config, null, 2));
+          "
+          
+          echo "frozen=true" >> $GITHUB_OUTPUT
+
+      - name: Create combined PR
+        if: steps.freeze.outputs.frozen == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            docs: release ${{ needs.determine-action.outputs.release_version }}
+            
+            - Freeze version ${{ needs.determine-action.outputs.release_version }}
+            - Set next development version to ${{ needs.determine-action.outputs.next_version }}
+            ${{ needs.determine-action.outputs.action == 'both' && '- Update changelog/release notes' || '' }}
+          title: ' Release Documentation ${{ needs.determine-action.outputs.release_version }}'
+          body: |
+            ##  Documentation Release
+            
+            This PR prepares documentation for release **${{ needs.determine-action.outputs.release_version }}**.
+            
+            ### Changes
+            ${{ needs.determine-action.outputs.action == 'both' && '-  Updated changelog/release notes' || '' }}
+            -  Frozen documentation at `/docs/${{ needs.determine-action.outputs.release_version }}/`
+            -  Updated version configuration in `mint.json`
+            -  Set next development version to `${{ needs.determine-action.outputs.next_version }}`
+            
+            ### Review Checklist
+            - [ ] Version numbers are correct
+            - [ ] Changelog is up to date
+            - [ ] Documentation is properly frozen
+            - [ ] No sensitive information included
+            
+            ---
+            *Triggered by: ${{ github.event_name }}*
+          branch: release-docs-${{ needs.determine-action.outputs.release_version }}
+          delete-branch: true
+          labels: |
+            documentation
+            release
+            automated
+          assignees: ${{ github.actor }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "##  Documentation Automation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action**: ${{ needs.determine-action.outputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.determine-action.outputs.action }}" == *"changelog"* ]]; then
+            echo "###  Changelog Sync" >> $GITHUB_STEP_SUMMARY
+            echo "- Source: \`${{ needs.determine-action.outputs.source_version }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.determine-action.outputs.action }}" == *"version"* || "${{ needs.determine-action.outputs.action }}" == "both" ]]; then
+            echo "###  Version Freeze" >> $GITHUB_STEP_SUMMARY
+            echo "- Frozen: \`${{ needs.determine-action.outputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Next: \`${{ needs.determine-action.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo " Pull Request created for review" >> $GITHUB_STEP_SUMMARY

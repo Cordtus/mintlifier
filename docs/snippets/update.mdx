@@ -1,0 +1,24 @@
+export function Update({ version, date, children }) {
+  return (
+    <div className="update-container">
+      <div className="update-header">
+        <h3 className="update-version">{version}</h3>
+        <span className="update-date">{date}</span>
+      </div>
+      <div className="update-content">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+Update.Category = function Category({ name, children }) {
+  return (
+    <div className="update-category">
+      <h4 className="category-name">{name}</h4>
+      <div className="category-items">
+        {children}
+      </div>
+    </div>
+  );
+};

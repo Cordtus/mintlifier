@@ -1,0 +1,257 @@
+---
+title: Versioning
+description: 'Multi-version documentation management system'
+---
+
+# Versioning
+
+Manage multiple versions of your documentation with automated freezing and changelog synchronization.
+
+## Overview
+
+The versioning system enables:
+- Immutable documentation snapshots at specific versions
+- Automated changelog synchronization from GitHub releases
+- Version selector UI for users to switch between versions
+- GitHub Actions integration for CI/CD automation
+
+## Setup During Initial Configuration
+
+When running Mintlifier, the versioning system is configured automatically:
+
+```
+? Enable documentation versioning? Yes
+? Version name (e.g., "v2.0", "latest"): v3.0.0
+? Add another version? Yes
+? Version name: v2.5.0
+? Add another version? No
+? Enable automated versioning system? Yes
+? Repository owner (for changelog sync): enterprise
+? Repository name: api-platform
+? Enable auto-versioning on releases? Yes
+```
+
+This creates:
+- Version management scripts in `scripts/`
+- GitHub Actions workflows in `.github/workflows/`
+- Initial version configuration in `mint.json`
+
+## Generated Files
+
+### Scripts Directory
+
+```
+scripts/
+├── version-manager.sh      # Manual version freezing
+├── sync-changelog.sh       # Changelog synchronization
+└── parse-changelog.js      # Markdown to MDX converter
+```
+
+### GitHub Workflows
+
+```
+.github/workflows/
+├── auto-version.yml        # Automatic version freezing on releases
+└── sync-changelog.yml      # Scheduled changelog synchronization
+```
+
+## Version Freezing Process
+
+### Manual Freezing
+
+Run the version manager script:
+
+```bash
+cd mintlify-docs
+./scripts/version-manager.sh
+```
+
+Process:
+1. Prompts for version to freeze (e.g., v3.0.0)
+2. Prompts for next development version (e.g., v3.1.0)
+3. Creates frozen copy at `docs/[version]/`
+4. Updates all internal links in frozen version
+5. Updates `mint.json` with version configuration
+6. Creates metadata files for tracking
+
+### Automatic Freezing
+
+When a release is published in the source repository:
+1. GitHub Actions workflow triggers
+2. Syncs changelog from release notes
+3. Freezes current documentation
+4. Creates pull request for review
+
+## Directory Structure
+
+```
+mintlify-docs/
+├── docs/
+│   ├── v3.0.0/             # Frozen version
+│   │   ├── getting-started/
+│   │   ├── features/
+│   │   └── .version-metadata.json
+│   └── v2.5.0/             # Another frozen version
+├── getting-started/        # Current development version
+├── features/
+└── mint.json              # Version configuration
+```
+
+## Version Configuration
+
+In `mint.json`:
+
+```json
+{
+  "versions": [
+    "v3.1.0",                    // Current development
+    {
+      "name": "v3.0.0",
+      "url": "docs/v3.0.0"       // Frozen version
+    },
+    {
+      "name": "v2.5.0",
+      "url": "docs/v2.5.0"       // Frozen version
+    }
+  ]
+}
+```
+
+## URL Routing
+
+- **Current version**: `/getting-started/introduction`
+- **Frozen v3.0.0**: `/docs/v3.0.0/getting-started/introduction`
+- **Frozen v2.5.0**: `/docs/v2.5.0/getting-started/introduction`
+
+## Changelog Synchronization
+
+### Manual Sync
+
+```bash
+./scripts/sync-changelog.sh latest
+# Or specific version
+./scripts/sync-changelog.sh v3.0.0
+```
+
+### Automatic Sync
+
+The `sync-changelog.yml` workflow runs:
+- On schedule (configurable)
+- On manual trigger
+- When triggered by external repository
+
+## Version Metadata
+
+Each frozen version includes metadata:
+
+`.version-metadata.json`:
+```json
+{
+  "version": "v3.0.0",
+  "frozenDate": "2024-01-15",
+  "frozenTimestamp": "2024-01-15T10:30:00Z",
+  "nextVersion": "v3.1.0"
+}
+```
+
+`.version-frozen`:
+```
+v3.0.0 - Frozen on 2024-01-15
+```
+
+## Webhook Integration
+
+For external repository triggers:
+
+1. Copy webhook setup instructions from `WEBHOOK_SETUP.md`
+2. Configure repository dispatch in source repository
+3. Add personal access token as secret
+4. Workflows trigger automatically on releases
+
+## Best Practices
+
+### Version Naming
+
+Use semantic versioning:
+- Major: `v3.0.0` → `v4.0.0`
+- Minor: `v3.0.0` → `v3.1.0`
+- Patch: `v3.0.0` → `v3.0.1`
+
+### Freeze Timing
+
+Freeze versions:
+- Before major releases
+- After significant documentation updates
+- When API changes are deployed
+
+### Maintenance
+
+- Keep maximum 5-10 versions
+- Archive older versions separately
+- Update version selector regularly
+
+## Commands Reference
+
+### Freeze Version
+```bash
+./scripts/version-manager.sh
+```
+
+### Sync Changelog
+```bash
+./scripts/sync-changelog.sh [version|latest]
+```
+
+### Manual GitHub Action Trigger
+```bash
+gh workflow run auto-version.yml \
+  -f release_version=v3.0.0 \
+  -f next_version=v3.1.0
+```
+
+## Troubleshooting
+
+### Version Already Exists
+
+If freezing fails with "version already exists":
+1. Check `docs/` directory for existing version
+2. Choose different version number
+3. Or delete existing version if needed
+
+### Changelog Not Syncing
+
+Check:
+1. Repository permissions in GitHub token
+2. CHANGELOG.md exists in source repository
+3. Correct repository owner/name configured
+
+### Links Not Updated
+
+Ensure:
+1. All MDX files use relative links `](/path)`
+2. No hardcoded absolute URLs
+3. Version manager script has execute permissions
+
+## Configuration Options
+
+### Disable Auto-versioning
+
+Remove or disable workflow:
+```bash
+rm .github/workflows/auto-version.yml
+# Or rename to .github/workflows/auto-version.yml.disabled
+```
+
+### Custom Version Formats
+
+Edit `scripts/version-manager.sh` to support:
+- Date-based: `2024.01.15`
+- Code names: `neptune`, `saturn`
+- Build numbers: `build-1234`
+
+### Version-specific Configuration
+
+Add to frozen version's directory:
+- Custom `_meta.json` for navigation
+- Version-specific assets
+- Release-specific documentation

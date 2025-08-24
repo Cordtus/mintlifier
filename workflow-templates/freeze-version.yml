@@ -1,0 +1,253 @@
+# Workflow: Freeze Documentation Version
+# This workflow freezes the current documentation at a specific version
+# It creates a PR for review rather than directly committing changes
+
+name: Freeze Version
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Version to freeze (e.g., v1.0.0)'
+        required: true
+      next_version:
+        description: 'Next development version (e.g., v1.1.0)'
+        required: true
+      update_changelog:
+        description: 'Update changelog before freezing'
+        type: boolean
+        default: true
+        
+  # External repository trigger
+  repository_dispatch:
+    types: [freeze-version]
+    # Payload should include:
+    # - release_version: version to freeze
+    # - next_version: next development version
+    # - update_changelog: boolean (optional, default true)
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  freeze-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Determine versions
+        id: versions
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            RELEASE="${{ github.event.client_payload.release_version }}"
+            NEXT="${{ github.event.client_payload.next_version }}"
+            UPDATE_CHANGELOG="${{ github.event.client_payload.update_changelog }}"
+          else
+            RELEASE="${{ github.event.inputs.release_version }}"
+            NEXT="${{ github.event.inputs.next_version }}"
+            UPDATE_CHANGELOG="${{ github.event.inputs.update_changelog }}"
+          fi
+          
+          # Default update_changelog to true if not specified
+          if [ -z "$UPDATE_CHANGELOG" ]; then
+            UPDATE_CHANGELOG="true"
+          fi
+          
+          echo "release_version=$RELEASE" >> $GITHUB_OUTPUT
+          echo "next_version=$NEXT" >> $GITHUB_OUTPUT
+          echo "update_changelog=$UPDATE_CHANGELOG" >> $GITHUB_OUTPUT
+
+      - name: Check if version already frozen
+        id: check_frozen
+        run: |
+          if [ -d "docs/${{ steps.versions.outputs.release_version }}" ]; then
+            echo "already_frozen=true" >> $GITHUB_OUTPUT
+            echo " Version ${{ steps.versions.outputs.release_version }} is already frozen" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "already_frozen=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update changelog (if requested)
+        if: steps.check_frozen.outputs.already_frozen == 'false' && steps.versions.outputs.update_changelog == 'true'
+        run: |
+          echo " Updating changelog from latest release..."
+          ./scripts/sync-changelog.sh "${{ steps.versions.outputs.release_version }}"
+
+      - name: Freeze version
+        if: steps.check_frozen.outputs.already_frozen == 'false'
+        id: freeze
+        run: |
+          CURRENT_VERSION="${{ steps.versions.outputs.release_version }}"
+          NEXT_VERSION="${{ steps.versions.outputs.next_version }}"
+          
+          echo " Freezing version $CURRENT_VERSION..."
+          
+          # Create docs directory if it doesn't exist
+          mkdir -p docs
+          
+          # Create version directory and copy docs
+          mkdir -p "docs/$CURRENT_VERSION"
+          
+          # Copy all MDX files and assets (excluding already versioned docs)
+          find . -name "*.mdx" -not -path "./docs/v*/*" -not -path "./node_modules/*" -not -path "./mintlify-docs/*" | while read -r file; do
+            # Skip if file is in root directory
+            if [ "$(dirname "$file")" = "." ]; then
+              continue
+            fi
+            
+            target="docs/$CURRENT_VERSION/${file#./}"
+            mkdir -p "$(dirname "$target")"
+            cp "$file" "$target"
+          done
+          
+          # Copy images and other assets
+          if [ -d "images" ]; then
+            cp -r images "docs/$CURRENT_VERSION/"
+          fi
+          if [ -d "assets" ]; then
+            cp -r assets "docs/$CURRENT_VERSION/"
+          fi
+          
+          # Update internal links in the versioned files
+          find "docs/$CURRENT_VERSION" -name "*.mdx" -type f -exec sed -i.bak "s|](/|](/docs/$CURRENT_VERSION/|g" {} \;
+          find "docs/$CURRENT_VERSION" -name "*.mdx.bak" -type f -delete
+          
+          # Create version metadata
+          cat > "docs/$CURRENT_VERSION/.version-metadata.json" << EOF
+          {
+            "version": "$CURRENT_VERSION",
+            "frozenDate": "$(date '+%Y-%m-%d')",
+            "frozenTimestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+            "nextVersion": "$NEXT_VERSION",
+            "automated": true
+          }
+          EOF
+          
+          echo "frozen=true" >> $GITHUB_OUTPUT
+          echo " Version $CURRENT_VERSION frozen successfully"
+
+      - name: Update mint.json
+        if: steps.freeze.outputs.frozen == 'true'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('mint.json', 'utf8'));
+            
+            // Initialize versions array if it doesn't exist
+            if (!config.versions) {
+              config.versions = [];
+            }
+            
+            const newVersion = '${{ steps.versions.outputs.next_version }}';
+            const currentVersion = '${{ steps.versions.outputs.release_version }}';
+            
+            // Remove current version if it exists (as string or object)
+            config.versions = config.versions.filter(v => 
+              (typeof v === 'string' ? v : v.name) !== currentVersion
+            );
+            
+            // Add new development version at the beginning
+            if (!config.versions.some(v => (typeof v === 'string' ? v : v.name) === newVersion)) {
+              config.versions.unshift(newVersion);
+            }
+            
+            // Add frozen version with URL
+            config.versions.push({
+              name: currentVersion,
+              url: 'docs/' + currentVersion
+            });
+            
+            fs.writeFileSync('mint.json', JSON.stringify(config, null, 2));
+            console.log(' Updated mint.json with new versions');
+          "
+
+      - name: Create Pull Request
+        if: steps.check_frozen.outputs.already_frozen == 'false'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            docs: freeze version ${{ steps.versions.outputs.release_version }}
+            
+            - Frozen documentation at version ${{ steps.versions.outputs.release_version }}
+            - Set next development version to ${{ steps.versions.outputs.next_version }}
+            - Updated mint.json with version configuration
+          title: ' Freeze Version ${{ steps.versions.outputs.release_version }}'
+          body: |
+            ##  Version Freeze
+            
+            This PR freezes the documentation at version **${{ steps.versions.outputs.release_version }}** and prepares for **${{ steps.versions.outputs.next_version }}** development.
+            
+            ### Changes
+            -  Created frozen documentation at `/docs/${{ steps.versions.outputs.release_version }}/`
+            -  Updated all internal links in frozen version
+            -  Updated `mint.json` with version configuration
+            -  Set next development version to `${{ steps.versions.outputs.next_version }}`
+            ${{ steps.versions.outputs.update_changelog == 'true' && '-  Updated changelog/release notes' || '' }}
+            
+            ### Version Information
+            - **Frozen Version**: `${{ steps.versions.outputs.release_version }}`
+            - **Next Version**: `${{ steps.versions.outputs.next_version }}`
+            - **Freeze Date**: $(date '+%Y-%m-%d')
+            
+            ### Review Checklist
+            - [ ] Version numbers are correct
+            - [ ] Documentation is properly frozen
+            - [ ] Internal links are updated correctly
+            - [ ] mint.json configuration is valid
+            - [ ] No unintended files included
+            
+            ### Next Steps
+            After merging this PR:
+            1. The frozen version will be available at `/docs/${{ steps.versions.outputs.release_version }}/`
+            2. Continue development for version `${{ steps.versions.outputs.next_version }}`
+            3. Users can switch between versions using the version selector
+            
+            ---
+            *This PR was automatically generated by the version freeze workflow.*
+          branch: freeze-version-${{ steps.versions.outputs.release_version }}
+          delete-branch: true
+          labels: |
+            documentation
+            versioning
+            automated
+          assignees: ${{ github.actor }}
+          reviewers: ${{ github.actor }}
+
+      - name: Summary
+        run: |
+          echo "##  Version Freeze Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.check_frozen.outputs.already_frozen }}" == "true" ]]; then
+            echo " **Version already frozen**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Version \`${{ steps.versions.outputs.release_version }}\` has already been frozen." >> $GITHUB_STEP_SUMMARY
+            echo "No action was taken." >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ steps.freeze.outputs.frozen }}" == "true" ]]; then
+            echo " **Successfully froze version**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Frozen version: \`${{ steps.versions.outputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Next development: \`${{ steps.versions.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Changelog updated: ${{ steps.versions.outputs.update_changelog }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Pull Request created for review" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The frozen documentation will be available at:" >> $GITHUB_STEP_SUMMARY
+            echo "\`/docs/${{ steps.versions.outputs.release_version }}/\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo " **Version freeze failed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+          fi

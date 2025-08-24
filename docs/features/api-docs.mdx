@@ -1,0 +1,543 @@
+---
+title: API Documentation
+description: 'OpenAPI/Swagger integration for automatic API documentation'
+---
+
+# API Documentation
+
+Configure OpenAPI/Swagger integration to generate interactive API documentation automatically.
+
+## Overview
+
+Mintlify supports OpenAPI 3.0 and Swagger 2.0 specifications to:
+- Generate API reference pages automatically
+- Provide interactive API playground
+- Display request/response examples
+- Show authentication requirements
+- Document error codes and responses
+
+## Configuration
+
+### During Initial Setup
+
+When running Mintlifier:
+
+```
+? Do you have OpenAPI/Swagger documentation? Yes
+? How many OpenAPI spec files? 3
+? OpenAPI spec file 1 path: /openapi-v1.json
+? OpenAPI spec file 2 path: /openapi-v2.json
+? OpenAPI spec file 3 path: /openapi-internal.json
+? Configure API base URL? Yes
+? API base URL: https://api.example.com
+? API authentication method: Bearer Token
+? API playground mode: Show (Interactive)
+```
+
+### Manual Configuration
+
+Add to `mint.json`:
+
+```json
+{
+  "openapi": "/openapi.json",
+  "api": {
+    "baseUrl": "https://api.example.com",
+    "auth": {
+      "method": "bearer"
+    },
+    "playground": {
+      "mode": "show"
+    }
+  }
+}
+```
+
+## OpenAPI Specification
+
+### Single Spec File
+
+```json
+{
+  "openapi": "/openapi.json"
+}
+```
+
+### Multiple Spec Files
+
+```json
+{
+  "openapi": [
+    "/openapi-v1.json",
+    "/openapi-v2.json",
+    "/openapi-internal.json"
+  ]
+}
+```
+
+### Remote Specifications
+
+```json
+{
+  "openapi": "https://api.example.com/openapi.json"
+}
+```
+
+## API Configuration Options
+
+### Base URL
+
+Sets the default server for API requests:
+
+```json
+{
+  "api": {
+    "baseUrl": "https://api.example.com"
+  }
+}
+```
+
+### Authentication Methods
+
+#### Bearer Token
+```json
+{
+  "api": {
+    "auth": {
+      "method": "bearer"
+    }
+  }
+}
+```
+
+#### Basic Authentication
+```json
+{
+  "api": {
+    "auth": {
+      "method": "basic"
+    }
+  }
+}
+```
+
+#### API Key
+```json
+{
+  "api": {
+    "auth": {
+      "method": "key",
+      "name": "X-API-Key"
+    }
+  }
+}
+```
+
+### Playground Modes
+
+#### Interactive (Show)
+Full interactive playground with request builder:
+
+```json
+{
+  "api": {
+    "playground": {
+      "mode": "show"
+    }
+  }
+}
+```
+
+#### Simple
+Basic request/response display:
+
+```json
+{
+  "api": {
+    "playground": {
+      "mode": "simple"
+    }
+  }
+}
+```
+
+#### Hidden
+No playground, documentation only:
+
+```json
+{
+  "api": {
+    "playground": {
+      "mode": "hide"
+    }
+  }
+}
+```
+
+## OpenAPI Specification Format
+
+### Minimal Example
+
+```json
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Example API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com"
+    }
+  ],
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "List users",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Navigation Integration
+
+### Automatic API Pages
+
+Mintlify generates pages for each endpoint:
+
+```
+/api-reference/
+├── users/
+│   ├── list-users
+│   ├── get-user
+│   ├── create-user
+│   └── update-user
+├── organizations/
+│   └── ...
+└── billing/
+    └── ...
+```
+
+### Custom Navigation
+
+Reference API pages in navigation:
+
+```json
+{
+  "navigation": [
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/introduction",
+        "api-reference/authentication",
+        {
+          "group": "Users",
+          "pages": [
+            "api-reference/users/list-users",
+            "api-reference/users/get-user"
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## MDX API Pages
+
+Create custom API documentation pages:
+
+```mdx
+---
+title: List Users
+api: GET /users
+---
+
+## List all users
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ResponseExample>
+```json
+{
+  "users": [
+    {
+      "id": "usr_123",
+      "name": "John Doe",
+      "email": "john@example.com"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "total": 100
+  }
+}
+```
+</ResponseExample>
+```
+
+## Server Configuration
+
+### Multiple Servers
+
+```json
+{
+  "api": {
+    "servers": [
+      {
+        "url": "https://api.example.com",
+        "description": "Production"
+      },
+      {
+        "url": "https://staging-api.example.com",
+        "description": "Staging"
+      },
+      {
+        "url": "http://localhost:3000",
+        "description": "Development"
+      }
+    ]
+  }
+}
+```
+
+### Environment Variables
+
+```json
+{
+  "api": {
+    "baseUrl": "https://{environment}.api.example.com",
+    "variables": {
+      "environment": {
+        "default": "production",
+        "enum": ["production", "staging", "development"]
+      }
+    }
+  }
+}
+```
+
+## Response Examples
+
+### Success Response
+
+```yaml
+responses:
+  '200':
+    description: Successful response
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/User'
+        examples:
+          example1:
+            summary: Complete user object
+            value:
+              id: usr_123
+              name: John Doe
+              email: john@example.com
+```
+
+### Error Responses
+
+```yaml
+responses:
+  '400':
+    description: Bad Request
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  '401':
+    description: Unauthorized
+  '404':
+    description: Not Found
+  '500':
+    description: Internal Server Error
+```
+
+## Security Schemes
+
+### Define Security
+
+```yaml
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+```
+
+### Apply Security
+
+```yaml
+security:
+  - bearerAuth: []
+  - apiKey: []
+```
+
+## Best Practices
+
+### Specification Organization
+
+1. Keep specs modular:
+   - `openapi-public.json` - Public endpoints
+   - `openapi-internal.json` - Internal endpoints
+   - `openapi-admin.json` - Admin endpoints
+
+2. Use references:
+   ```yaml
+   $ref: './schemas/user.yaml'
+   ```
+
+3. Version your API:
+   ```yaml
+   servers:
+     - url: https://api.example.com/v1
+     - url: https://api.example.com/v2
+   ```
+
+### Documentation Quality
+
+1. Provide descriptions:
+   ```yaml
+   description: |
+     Returns a list of users with pagination support.
+     Results can be filtered by status and creation date.
+   ```
+
+2. Include examples:
+   ```yaml
+   examples:
+     success:
+       value: { "id": "123", "name": "John" }
+     error:
+       value: { "error": "Invalid request" }
+   ```
+
+3. Document parameters thoroughly:
+   ```yaml
+   parameters:
+     - name: page
+       in: query
+       description: Page number (1-indexed)
+       required: false
+       schema:
+         type: integer
+         minimum: 1
+         default: 1
+   ```
+
+## Troubleshooting
+
+### Spec Not Loading
+
+Check:
+1. File path is correct
+2. JSON/YAML is valid
+3. OpenAPI version is supported (3.0+)
+
+### Playground Not Working
+
+Verify:
+1. `baseUrl` is accessible
+2. CORS is configured on API
+3. Authentication is set up correctly
+
+### Missing Endpoints
+
+Ensure:
+1. All paths are defined in spec
+2. No syntax errors in OpenAPI file
+3. References resolve correctly
+
+## Advanced Features
+
+### Request Validators
+
+```json
+{
+  "api": {
+    "request": {
+      "example": {
+        "enabled": true,
+        "languages": ["curl", "javascript", "python"]
+      }
+    }
+  }
+}
+```
+
+### Response Tabs
+
+```json
+{
+  "api": {
+    "response": {
+      "examples": {
+        "format": "tabs"
+      }
+    }
+  }
+}
+```
+
+### Custom Styling
+
+```json
+{
+  "api": {
+    "playground": {
+      "style": {
+        "theme": "dark",
+        "tryItButton": {
+          "text": "Execute Request",
+          "color": "#FF6B35"
+        }
+      }
+    }
+  }
+}
+```

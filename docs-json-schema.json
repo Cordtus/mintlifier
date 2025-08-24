@@ -1,0 +1,855 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mintlify docs.json Configuration Schema",
+  "description": "Complete schema for Mintlify docs.json configuration (2024-2025)",
+  "type": "object",
+  "required": ["name", "theme", "colors", "navigation"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference for validation and autocomplete",
+      "default": "https://mintlify.com/docs.json"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of your documentation site"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of your documentation site"
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["mint", "maple", "palm", "willow", "linden", "almond", "aspen"],
+      "description": "Visual theme preset",
+      "default": "mint"
+    },
+    "colors": {
+      "type": "object",
+      "description": "Color configuration",
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Primary color (hex)"
+        },
+        "light": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Light mode variant color (hex)"
+        },
+        "dark": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Dark mode variant color (hex)"
+        }
+      }
+    },
+    "icons": {
+      "type": "object",
+      "description": "Icon library configuration",
+      "properties": {
+        "library": {
+          "type": "string",
+          "enum": ["lucide", "heroicons", "fontawesome", "tabler", "phosphor"],
+          "description": "Icon library to use"
+        }
+      }
+    },
+    "styling": {
+      "type": "object",
+      "description": "Styling configuration",
+      "properties": {
+        "codeblocks": {
+          "type": "string",
+          "enum": ["system", "light", "dark"],
+          "description": "Code block color scheme"
+        }
+      }
+    },
+    "favicon": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to favicon file"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "light": {
+              "type": "string",
+              "description": "Path to light mode favicon"
+            },
+            "dark": {
+              "type": "string",
+              "description": "Path to dark mode favicon"
+            }
+          }
+        }
+      ]
+    },
+    "logo": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to logo file"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "light": {
+              "type": "string",
+              "description": "Path to light mode logo"
+            },
+            "dark": {
+              "type": "string",
+              "description": "Path to dark mode logo"
+            },
+            "href": {
+              "type": "string",
+              "description": "Link destination when logo is clicked"
+            }
+          }
+        }
+      ]
+    },
+    "contextual": {
+      "type": "object",
+      "description": "Contextual menu configuration",
+      "properties": {
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"]
+          },
+          "description": "Available contextual menu options"
+        }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "description": "Navigation structure",
+      "properties": {
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Simple page list (for single-version docs)"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/group"
+          },
+          "description": "Navigation groups (for single-version docs)"
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/tab"
+          },
+          "description": "Top-level tabs (for single-version docs)"
+        },
+        "versions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/version"
+          },
+          "description": "Multi-version navigation"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/language"
+          },
+          "description": "Multi-language navigation"
+        },
+        "dropdowns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dropdown"
+          },
+          "description": "Dropdown menus"
+        },
+        "anchors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/anchor"
+          },
+          "description": "Anchor sections"
+        }
+      }
+    },
+    "tabs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tab display name"
+          },
+          "url": {
+            "type": "string",
+            "description": "Tab URL path or external link"
+          },
+          "href": {
+            "type": "string",
+            "description": "External URL"
+          }
+        }
+      },
+      "description": "Legacy tabs configuration (deprecated, use navigation.tabs)"
+    },
+    "openapi": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to single OpenAPI spec file"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Paths to multiple OpenAPI spec files"
+        }
+      ]
+    },
+    "api": {
+      "type": "object",
+      "description": "API configuration",
+      "properties": {
+        "baseUrl": {
+          "type": "string",
+          "description": "Base URL for API endpoints"
+        },
+        "server": {
+          "type": "string",
+          "description": "API server URL"
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": ["bearer", "basic", "key", "none"],
+              "description": "Authentication method"
+            }
+          }
+        },
+        "playground": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["show", "simple", "hide"],
+              "description": "API playground display mode"
+            }
+          }
+        },
+        "proxy": {
+          "type": "boolean",
+          "description": "Whether to proxy API requests"
+        }
+      }
+    },
+    "footer": {
+      "type": "object",
+      "description": "Footer configuration",
+      "properties": {
+        "socials": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "string" },
+            "twitter": { "type": "string" },
+            "github": { "type": "string" },
+            "discord": { "type": "string" },
+            "slack": { "type": "string" },
+            "linkedin": { "type": "string" },
+            "youtube": { "type": "string" },
+            "facebook": { "type": "string" },
+            "instagram": { "type": "string" },
+            "website": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "footerSocials": {
+      "type": "object",
+      "description": "Social media links (alternative location)",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "analytics": {
+      "type": "object",
+      "description": "Analytics integrations",
+      "properties": {
+        "ga4": {
+          "type": "object",
+          "properties": {
+            "measurementId": {
+              "type": "string",
+              "pattern": "^G-",
+              "description": "Google Analytics 4 Measurement ID"
+            }
+          }
+        },
+        "gtm": {
+          "type": "object",
+          "properties": {
+            "containerId": {
+              "type": "string",
+              "pattern": "^GTM-",
+              "description": "Google Tag Manager Container ID"
+            }
+          }
+        },
+        "posthog": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": "string",
+              "pattern": "^phc_",
+              "description": "PostHog API Key"
+            }
+          }
+        },
+        "mixpanel": {
+          "type": "object",
+          "properties": {
+            "projectToken": {
+              "type": "string",
+              "description": "Mixpanel Project Token"
+            }
+          }
+        },
+        "amplitude": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": "string",
+              "description": "Amplitude API Key"
+            }
+          }
+        },
+        "segment": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Segment Write Key"
+            }
+          }
+        },
+        "heap": {
+          "type": "object",
+          "properties": {
+            "appId": {
+              "type": "string",
+              "description": "Heap App ID"
+            }
+          }
+        },
+        "clearbit": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": "string",
+              "description": "Clearbit API Key"
+            }
+          }
+        },
+        "fathom": {
+          "type": "object",
+          "properties": {
+            "siteId": {
+              "type": "string",
+              "description": "Fathom Site ID"
+            }
+          }
+        },
+        "hotjar": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Hotjar ID"
+            },
+            "scriptVersion": {
+              "type": "string",
+              "description": "Hotjar Script Version"
+            }
+          }
+        },
+        "koala": {
+          "type": "object",
+          "properties": {
+            "publicKey": {
+              "type": "string",
+              "description": "Koala Public Key"
+            }
+          }
+        },
+        "plausible": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "description": "Plausible Domain"
+            }
+          }
+        },
+        "logrocket": {
+          "type": "object",
+          "properties": {
+            "appId": {
+              "type": "string",
+              "description": "LogRocket App ID"
+            }
+          }
+        },
+        "pirsch": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "Pirsch Code"
+            }
+          }
+        }
+      }
+    },
+    "integrations": {
+      "type": "object",
+      "description": "Third-party integrations",
+      "additionalProperties": true
+    },
+    "feedback": {
+      "type": "object",
+      "description": "Feedback widget configuration",
+      "properties": {
+        "thumbsRating": {
+          "type": "boolean",
+          "description": "Enable thumbs up/down rating"
+        },
+        "suggestEdit": {
+          "type": "boolean",
+          "description": "Enable 'Suggest Edit' feature"
+        },
+        "raiseIssue": {
+          "type": "boolean",
+          "description": "Enable 'Raise Issue' feature"
+        }
+      }
+    },
+    "search": {
+      "type": "object",
+      "description": "Search configuration",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Custom search prompt placeholder"
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "Search placeholder text"
+        },
+        "location": {
+          "type": "string",
+          "enum": ["side", "top"],
+          "description": "Search bar location"
+        }
+      }
+    },
+    "modeToggle": {
+      "type": "object",
+      "description": "Dark/light mode toggle settings",
+      "properties": {
+        "default": {
+          "type": "string",
+          "enum": ["light", "dark"],
+          "description": "Default color mode"
+        },
+        "isHidden": {
+          "type": "boolean",
+          "description": "Hide the mode toggle button"
+        }
+      }
+    },
+    "versions": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "Version string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Version name"
+              },
+              "url": {
+                "type": "string",
+                "description": "Version URL path"
+              }
+            }
+          }
+        ]
+      },
+      "description": "Version switcher (deprecated, use navigation.versions)"
+    },
+    "topbarLinks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Link text"
+          },
+          "url": {
+            "type": "string",
+            "description": "Link URL"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["link", "github"],
+            "description": "Link type"
+          }
+        }
+      },
+      "description": "Links in the top navigation bar"
+    },
+    "topbarCtaButton": {
+      "type": "object",
+      "description": "Call-to-action button in top bar",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Button text"
+        },
+        "url": {
+          "type": "string",
+          "description": "Button destination"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["link", "github"],
+          "description": "Button type"
+        }
+      }
+    },
+    "font": {
+      "type": "object",
+      "description": "Custom font configuration",
+      "properties": {
+        "family": {
+          "type": "string",
+          "description": "Font family name"
+        },
+        "weight": {
+          "type": ["string", "number"],
+          "description": "Font weight"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to font file"
+        },
+        "format": {
+          "type": "string",
+          "description": "Font format (required if using custom font URL)"
+        }
+      }
+    },
+    "layout": {
+      "type": "string",
+      "enum": ["topnav", "sidenav", "solidSidenav"],
+      "description": "Global layout style"
+    },
+    "rounded": {
+      "type": "string",
+      "enum": ["default", "sharp"],
+      "description": "Corner style"
+    },
+    "background": {
+      "type": "object",
+      "description": "Background configuration",
+      "properties": {
+        "style": {
+          "type": "string",
+          "description": "Background style"
+        }
+      }
+    },
+    "backgroundImage": {
+      "type": "string",
+      "description": "Custom background image URL"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Meta tags added to every page",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "seo": {
+      "type": "object",
+      "description": "SEO configuration",
+      "properties": {
+        "indexing": {
+          "type": "string",
+          "enum": ["navigable", "all"],
+          "description": "Which pages search engines should index"
+        }
+      }
+    },
+    "redirects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Source URL path"
+          },
+          "to": {
+            "type": "string",
+            "description": "Destination URL path"
+          }
+        }
+      },
+      "description": "URL redirect configurations"
+    },
+    "hideFeedbackButtons": {
+      "type": "boolean",
+      "description": "Hide all feedback buttons globally"
+    }
+  },
+  "definitions": {
+    "pageOrGroup": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Page path"
+        },
+        {
+          "$ref": "#/definitions/group"
+        }
+      ]
+    },
+    "group": {
+      "type": "object",
+      "required": ["group"],
+      "properties": {
+        "group": {
+          "type": "string",
+          "description": "Group name"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Group icon"
+        },
+        "iconType": {
+          "type": "string",
+          "enum": ["solid", "regular", "light", "thin", "duotone"],
+          "description": "Icon style type"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pageOrGroup"
+          },
+          "description": "Pages or nested groups"
+        }
+      }
+    },
+    "tab": {
+      "type": "object",
+      "required": ["tab"],
+      "properties": {
+        "tab": {
+          "type": "string",
+          "description": "Tab name"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Tab icon"
+        },
+        "href": {
+          "type": "string",
+          "description": "External URL"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pageOrGroup"
+          },
+          "description": "Pages in this tab"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/group"
+          },
+          "description": "Groups in this tab"
+        }
+      }
+    },
+    "version": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Version identifier"
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Is this the default version?"
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Hide this version?"
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/tab"
+          },
+          "description": "Tabs for this version"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/group"
+          },
+          "description": "Groups for this version"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pageOrGroup"
+          },
+          "description": "Pages for this version"
+        }
+      }
+    },
+    "language": {
+      "type": "object",
+      "required": ["language"],
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": ["en", "cn", "zh", "zh-Hans", "zh-Hant", "es", "fr", "ja", "jp", "pt", "pt-BR", "de", "ko", "it", "ru", "id", "ar", "tr"],
+          "description": "Language code"
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Is this the default language?"
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Hide this language?"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL path for this language"
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/tab"
+          },
+          "description": "Tabs for this language"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/group"
+          },
+          "description": "Groups for this language"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pageOrGroup"
+          },
+          "description": "Pages for this language"
+        }
+      }
+    },
+    "dropdown": {
+      "type": "object",
+      "required": ["dropdown"],
+      "properties": {
+        "dropdown": {
+          "type": "string",
+          "description": "Dropdown menu name"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Dropdown icon"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Item name"
+              },
+              "url": {
+                "type": "string",
+                "description": "Item URL"
+              }
+            }
+          },
+          "description": "Dropdown menu items"
+        }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "required": ["anchor"],
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "description": "Anchor section name"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Anchor icon"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Anchor color (hex)"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pageOrGroup"
+          },
+          "description": "Pages in this anchor section"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/group"
+          },
+          "description": "Groups in this anchor section"
+        }
+      }
+    }
+  }
+}
