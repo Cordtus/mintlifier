@@ -1,0 +1,178 @@
+---
+title: Quick Start
+description: 'Create your first Mintlify documentation in 5 minutes'
+---
+
+# Quick Start
+
+Create your first Mintlify documentation project in under 5 minutes.
+
+## Step 1: Run Mintlifier
+
+Start the interactive configuration builder:
+
+```bash
+yarn start
+```
+
+## Step 2: Basic Configuration
+
+Follow the prompts to configure your documentation. Here's a minimal example:
+
+```
+? Documentation site name: My Awesome Docs
+? Path to favicon file (.svg or .png): /favicon.svg
+? Select documentation theme: Venus (Modern)
+? Select layout style: Side Navigation
+? Select corner style: Default (Rounded)
+? Primary color (hex): #0D9373
+? Configure advanced color options? No
+```
+
+## Step 3: Add Navigation
+
+Create your documentation structure:
+
+```
+? Add navigation groups now? Yes
+? Group name: Getting Started
+? How many pages in this group? 3
+? Page 1 path: introduction
+? Page 2 path: installation
+? Page 3 path: configuration
+? Add another navigation group? No
+```
+
+## Step 4: Generate Project
+
+Confirm and generate your documentation:
+
+```
+? Generate Mintlify project with this configuration? Yes
+ Mintlify documentation project created!
+ Location: /your/path/mintlify-docs
+```
+
+## Step 5: Preview Your Docs
+
+Navigate to your new documentation and start the development server:
+
+```bash
+cd mintlify-docs
+mint dev
+```
+
+Your documentation will be available at `http://localhost:3000`
+
+## What's Created
+
+Mintlifier generates a complete documentation structure:
+
+```
+mintlify-docs/
+├── mint.json              # Configuration file
+├── getting-started/       # Navigation group
+│   ├── introduction.mdx
+│   ├── installation.mdx
+│   └── configuration.mdx
+├── images/               # Assets directory
+├── favicon.svg
+└── logo.svg
+```
+
+## Example: Advanced Setup
+
+For a more complete setup with versioning and GitHub integration:
+
+```bash
+yarn start
+
+# Enable advanced features
+? Configure advanced color options? Yes
+? Add navigation groups now? Yes
+? Add top navigation tabs? Yes
+? Do you have OpenAPI/Swagger documentation? Yes
+? Configure footer? Yes
+? Configure analytics? Yes
+? Enable documentation versioning? Yes
+? Enable automated versioning system? Yes
+```
+
+This creates:
+
+- Multiple navigation groups and tabs
+- OpenAPI integration for auto-generated API docs
+- Analytics tracking
+- Social media links
+- Version management scripts
+- GitHub Actions workflows
+
+## Common Configurations
+
+### Simple Documentation
+
+Perfect for small projects:
+
+```javascript
+{
+  "name": "Simple Docs",
+  "theme": "venus",
+  "navigation": [
+    {
+      "group": "Documentation",
+      "pages": ["intro", "guide", "api"]
+    }
+  ]
+}
+```
+
+### Multi-Version Documentation
+
+For projects with multiple versions:
+
+```javascript
+{
+  "name": "Versioned Docs",
+  "versions": ["v2.0.0", "v1.0.0"],
+  "navigation": [/* ... */]
+}
+```
+
+### API Documentation
+
+With OpenAPI/Swagger integration:
+
+```javascript
+{
+  "name": "API Docs",
+  "openapi": "/openapi.json",
+  "api": {
+    "baseUrl": "https://api.example.com",
+    "playground": {
+      "mode": "show"
+    }
+  }
+}
+```
+
+## Next Steps
+
+Now that you have your documentation:
+
+1. **Edit Content**: Modify the generated MDX files with your content
+2. **Add Assets**: Place images in the `images/` directory
+3. **Customize Theme**: Adjust colors and styling in `mint.json`
+4. **Deploy**: Use `mint deploy` to publish your docs
+
+## Tips
+
+- Use `mint dev --port 4000` to change the development port
+- Run `mint validate` to check your configuration
+- Add `_meta.json` files for advanced page ordering
+- Use MDX components for interactive content
+
+## Need Help?
+
+- Check the [Configuration Guide](/versions/v1.0.0/features/configuration) for all options
+- Set up [Versioning](/versions/v1.0.0/features/versioning) for multi-version docs
+- View the [Mintlify Documentation](https://mintlify.com/docs)

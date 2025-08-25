@@ -1,0 +1,168 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Mintlifier",
+  "description": "Interactive CLI tool for building Mintlify docs.json configuration with 2024-2025 schema support",
+  "favicon": "/favicon.svg",
+  "theme": "mint",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373"
+  },
+  "logo": {
+    "light": "/logo.svg",
+    "dark": "/logo.svg",
+    "href": "https://github.com/Cordtus/mintlifier"
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "styling": {
+    "codeblocks": "system"
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity"
+    ]
+  },
+  "navigation": {
+    "versions": [
+      {
+        "version": "next",
+        "default": true,
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "getting-started/introduction",
+                  "getting-started/installation",
+                  "getting-started/quickstart"
+                ]
+              },
+              {
+                "group": "Features",
+                "pages": [
+                  "features/configuration",
+                  "features/versioning",
+                  "features/automation",
+                  "features/api-docs"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Changelog",
+            "pages": [
+              "changelog/release-notes"
+            ]
+          }
+        ]
+      },
+      {
+        "version": "v2.0.0",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "versions/v2.0.0/getting-started/introduction",
+                  "versions/v2.0.0/getting-started/installation",
+                  "versions/v2.0.0/getting-started/quickstart"
+                ]
+              },
+              {
+                "group": "Features",
+                "pages": [
+                  "versions/v2.0.0/features/configuration",
+                  "versions/v2.0.0/features/versioning",
+                  "versions/v2.0.0/features/automation",
+                  "versions/v2.0.0/features/api-docs"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Changelog",
+            "pages": [
+              "versions/v2.0.0/changelog/release-notes"
+            ]
+          }
+        ]
+      },
+      {
+        "version": "v1.0.0",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": [
+                  "versions/v1.0.0/versions/v1.0.0/getting-started/introduction",
+                  "versions/v1.0.0/versions/v1.0.0/getting-started/installation",
+                  "versions/v1.0.0/versions/v1.0.0/getting-started/quickstart"
+                ]
+              },
+              {
+                "group": "Features",
+                "pages": [
+                  "versions/v1.0.0/versions/v1.0.0/features/configuration",
+                  "versions/v1.0.0/versions/v1.0.0/features/versioning",
+                  "versions/v1.0.0/versions/v1.0.0/features/automation",
+                  "versions/v1.0.0/versions/v1.0.0/features/api-docs"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Changelog",
+            "pages": [
+              "versions/v1.0.0/versions/v1.0.0/changelog/release-notes"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Cordtus/mintlifier",
+      "discord": "https://discord.gg/mintlify"
+    }
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
+  "search": {
+    "prompt": "Search Mintlifier docs...",
+    "location": "side"
+  },
+  "modeToggle": {
+    "default": "dark"
+  },
+  "analytics": {
+    "posthog": {
+      "apiKey": "phc_example_key"
+    }
+  },
+  "seo": {
+    "indexing": "navigable"
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/Cordtus/mintlifier"
+    }
+  ]
+}

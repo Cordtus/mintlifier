@@ -1,0 +1,10 @@
+{
+  "versions": [
+    "v2.0.0",
+    "v1.0.0"
+  ],
+  "defaultVersion": "v2.0.0",
+  "currentVersion": "v2.1.0",
+  "latestLabel": "next",
+  "showLatest": true
+}

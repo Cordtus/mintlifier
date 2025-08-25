@@ -1,0 +1,66 @@
+---
+title: Introduction
+description: 'Interactive CLI tool for building Mintlify documentation'
+---
+
+# Introduction
+
+Mintlifier is an interactive command-line tool that simplifies the process of creating and configuring Mintlify documentation projects. It provides a guided setup experience with smart defaults and comprehensive options.
+
+## Why Mintlifier?
+
+Setting up documentation with Mintlify requires careful configuration of various options, navigation structures, and project organization. Mintlifier streamlines this process by:
+
+- **Interactive Configuration**: Step-by-step prompts guide you through all available options
+- **Smart Defaults**: Sensible pre-configured values that work out of the box
+- **Complete Project Generation**: Creates the entire documentation structure automatically
+- **Versioning Support**: Optional automated versioning system for multi-version docs
+- **Best Practices**: Follows Mintlify's recommended project structure
+
+## Key Features
+
+### Visual Customization
+- Multiple themes (Venus, Quill, Prism)
+- Custom color schemes with light/dark mode support
+- Logo configuration with dual-mode options
+- Layout styles (top nav, side nav, solid side nav)
+
+### Project Structure
+- Automatic directory creation based on navigation groups
+- Template MDX files for all configured pages
+- Proper asset organization
+- OpenAPI spec placeholders
+
+### Version Management
+- Freeze documentation at specific versions
+- Automated changelog synchronization
+- GitHub Actions workflows for CI/CD
+- Version-specific URL routing
+
+### Integrations
+- OpenAPI/Swagger documentation
+- Analytics (GA4, PostHog, Mixpanel, etc.)
+- Social media links
+- Feedback features
+
+## Quick Example
+
+```bash
+# Install and run Mintlifier
+yarn install
+yarn start
+
+# Follow the interactive prompts
+# Your documentation is generated in mintlify-docs/
+
+# Start local development
+cd mintlify-docs
+mint dev
+```
+
+## Next Steps
+
+- [Installation](/versions/v1.0.0/getting-started/installation) - Get Mintlifier up and running
+- [Quick Start](/versions/v1.0.0/getting-started/quickstart) - Create your first documentation
+- [Configuration](/versions/v1.0.0/features/configuration) - Explore all configuration options
+- [Versioning](/versions/v1.0.0/features/versioning) - Set up multi-version documentation

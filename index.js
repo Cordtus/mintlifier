@@ -815,6 +815,18 @@ Add your content here.
       }
     }
 
+    // Clean up any MDX issues that might cause parsing errors
+    spinner.text = 'Cleaning up MDX files...';
+    const { execSync } = await import('child_process');
+    try {
+      // Fix ResponseExample closing tag followed by extra backticks
+      execSync(`find "${outputDir}" -name "*.mdx" -type f -exec sed -i '' '/^<\\/ResponseExample>$/{ n; /^\\\`\\\`\\\`$/d; }' {} \\; 2>/dev/null || true`, { stdio: 'ignore' });
+      // Fix any standalone triple backticks that might cause issues
+      execSync(`find "${outputDir}" -name "*.mdx" -type f -exec sed -i '' '/^\\\`\\\`\\\`$/{ N; s/\\\`\\\`\\\`\\n\\\`\\\`\\\`//g; }' {} \\; 2>/dev/null || true`, { stdio: 'ignore' });
+    } catch (cleanupError) {
+      // Ignore cleanup errors, they're not critical
+    }
+
     spinner.succeed('Project structure generated successfully!');
 
     // Set up versioning system if requested
