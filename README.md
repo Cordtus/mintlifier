@@ -296,15 +296,16 @@ The new docs.json supports a unified navigation structure:
 
 ## Migration from mint.json
 
-If you have an existing mint.json file:
+Mintlify provides a built-in migration tool for converting mint.json to docs.json:
 
-1. Run `npx mint@latest migrate` to convert to docs.json
-2. Update theme names:
-   - venus → mint
-   - quill → maple
-   - prism → palm
-3. Use Mintlifier's edit mode to update navigation structure
-4. Test with `npx mint@latest dev`
+1. Run `npx mint@latest migrate` (Mintlify's official migration tool)
+2. After migration, use Mintlifier's edit mode to further customize your configuration:
+   ```bash
+   npx mintlifier --edit docs.json
+   ```
+3. Test your migrated documentation with `npx mint@latest dev`
+
+Note: Mintlifier focuses on creating and editing docs.json files, not converting from mint.json. Use Mintlify's official migration tool for conversion.
 
 ## Next Steps
 
