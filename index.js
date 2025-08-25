@@ -32,7 +32,7 @@ function makeRelativePath(filePath) {
   return filePath;
 }
 
-console.log(chalk.cyan.bold('\n🚀 Mintlifier - Mintlify docs.json Configuration Builder\n'));
+console.log(chalk.cyan.bold('\n Mintlifier - Mintlify docs.json Configuration Builder\n'));
 console.log(chalk.gray('Building for the latest Mintlify (2024-2025) with docs.json\n'));
 
 // Handle command-line arguments

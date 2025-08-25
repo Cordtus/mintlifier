@@ -90,7 +90,7 @@ switch (action) {
           v !== 'latest' && v !== 'next' && v !== 'main'
         );
         versions.defaultVersion = regularVersions[0] || versions.latestLabel || 'latest';
-        console.log(` ℹ Updated default version to ${versions.defaultVersion}`);
+        console.log(`  Updated default version to ${versions.defaultVersion}`);
       }
       
       // Update current version if needed

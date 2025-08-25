@@ -1,8 +1,8 @@
-# 🚀 Mintlifier - Interactive Mintlify docs.json Configuration Builder
+#  Mintlifier - Interactive Mintlify docs.json Configuration Builder
 
 A powerful CLI tool for creating and managing Mintlify documentation configurations with the latest docs.json schema (2024-2025).
 
-## ✨ Features
+##  Features
 
 - **Latest Schema Support**: Full support for the new docs.json schema with all 2024-2025 features
 - **Interactive Configuration**: Step-by-step wizard for creating docs.json files
@@ -13,7 +13,7 @@ A powerful CLI tool for creating and managing Mintlify documentation configurati
 - **Project Structure**: Automatically generates folder structure and MDX files
 - **Schema Documentation**: Complete JSON Schema and TypeScript definitions included
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```bash
 # Create a new Mintlify configuration
@@ -30,7 +30,7 @@ cd mintlify-docs
 npx mint@latest dev
 ```
 
-## 📦 Installation
+##  Installation
 
 ```bash
 yarn install
@@ -38,7 +38,7 @@ yarn install
 npm install
 ```
 
-## 💡 Usage
+##  Usage
 
 ### Create New Configuration
 
@@ -68,7 +68,7 @@ node index.js --edit /path/to/docs.json
 
 When you run Mintlifier in a directory with an existing docs.json, you'll be prompted to either edit it or create a new one.
 
-## 🎨 What You'll Configure
+##  What You'll Configure
 
 ### 1. Basic Information
 - Documentation name and description
@@ -101,7 +101,7 @@ When you run Mintlifier in a directory with an existing docs.json, you'll be pro
 - Search configuration
 - SEO optimization
 
-## 📁 Generated Structure
+##  Generated Structure
 
 ```
 mintlify-docs/
@@ -121,7 +121,7 @@ mintlify-docs/
 └── openapi-v1.json    # OpenAPI specs (multiple supported)
 ```
 
-## 🛠️ Configuration Editor
+##  Configuration Editor
 
 ### Edit Mode
 
@@ -148,7 +148,7 @@ The editor supports all docs.json properties including:
 - **Compatibility Warnings**: Alerts for incompatible option combinations
 - **Preview**: View full configuration before saving
 
-## 📚 Schema Support
+##  Schema Support
 
 ### Complete docs.json Schema (2024-2025)
 
@@ -169,7 +169,7 @@ The new unified navigation structure supports:
 - Internationalization with 17 languages
 - Dropdown menus and anchor sections
 
-## 🎨 Configuration Options
+##  Configuration Options
 
 ### Themes (2024-2025)
 - `mint` - Default modern theme
@@ -228,7 +228,7 @@ The new unified navigation structure supports:
 - Turkish (tr)
 - Indonesian (id)
 
-## 🤖 Automation Script
+##  Automation Script
 
 For CI/CD pipelines, use the automation script:
 
@@ -239,7 +239,7 @@ node automate-config.js
 
 This generates a complete docs.json configuration without user interaction, perfect for automated deployments.
 
-## 📋 Navigation Structure Example
+##  Navigation Structure Example
 
 The new docs.json supports a unified navigation structure:
 
@@ -288,13 +288,13 @@ The new docs.json supports a unified navigation structure:
 }
 ```
 
-## 📖 Documentation
+##  Documentation
 
 - **[docs-json-schema.json](./docs-json-schema.json)** - Complete JSON Schema for validation
 - **[docs-json-schema.d.ts](./docs-json-schema.d.ts)** - TypeScript type definitions
 - **[DOCS-JSON-SCHEMA.md](./DOCS-JSON-SCHEMA.md)** - Comprehensive schema documentation
 
-## 🔄 Migration from mint.json
+##  Migration from mint.json
 
 If you have an existing mint.json file:
 
@@ -306,7 +306,7 @@ If you have an existing mint.json file:
 3. Use Mintlifier's edit mode to update navigation structure
 4. Test with `npx mint@latest dev`
 
-## ✅ Next Steps
+##  Next Steps
 
 After running Mintlifier:
 
@@ -315,10 +315,10 @@ After running Mintlifier:
 3. Make edits to your MDX files
 4. Deploy: `npx mint@latest deploy`
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📄 License
+##  License
 
 MIT

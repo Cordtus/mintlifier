@@ -12,9 +12,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Color helpers
-const info = (msg) => console.log(chalk.blue('ℹ'), msg);
+const info = (msg) => console.log(chalk.blue(''), msg);
 const success = (msg) => console.log(chalk.green('✓'), msg);
-const warning = (msg) => console.log(chalk.yellow('⚠'), msg);
+const warning = (msg) => console.log(chalk.yellow(''), msg);
 const error = (msg) => console.log(chalk.red('✗'), msg);
 
 // Parse semantic version
