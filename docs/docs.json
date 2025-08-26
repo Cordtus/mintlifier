@@ -84,8 +84,7 @@
                 "pages": [
                   "versions/v2.0.0/features/configuration",
                   "versions/v2.0.0/features/versioning",
-                  "versions/v2.0.0/features/automation",
-                  "versions/v2.0.0/features/api-docs"
+                  "versions/v2.0.0/features/automation"
                 ]
               }
             ]
