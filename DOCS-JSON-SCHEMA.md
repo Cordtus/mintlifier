@@ -126,7 +126,6 @@ Available options for the contextual menu:
 - `copy` - Copy code/text
 - `view` - View source
 - `chatgpt` - Open in ChatGPT
-- `claude` - Open in Claude
 - `perplexity` - Open in Perplexity
 - `mcp` - MCP integration
 - `cursor` - Open in Cursor

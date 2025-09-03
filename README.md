@@ -1,72 +1,200 @@
 # Mintlifier - Interactive Mintlify docs.json Configuration Builder
 
-A powerful CLI tool for creating and managing Mintlify documentation configurations with the latest docs.json schema (2024-2025).
+A powerful CLI tool for creating and managing Mintlify documentation configurations with the latest docs.json schema (2024-2025), featuring advanced versioning and project structure management.
 
 ## Features
 
-- **Latest Schema Support**: Full support for the new docs.json schema with all 2024-2025 features
-- **Interactive Configuration**: Step-by-step wizard for creating docs.json files
-- **Smart Defaults**: Pre-configured with best practices and common settings
-- **Validation**: Built-in validation for colors, URLs, required fields, and schema compliance
-- **Edit Mode**: Modify existing docs.json files with a user-friendly interface
-- **Flexible Navigation**: Support for simple, grouped, tabbed, versioned, and multi-language navigation
-- **Project Structure**: Automatically generates folder structure and MDX files
-- **Schema Documentation**: Complete JSON Schema and TypeScript definitions included
+- **🎯 Modern CLI Commands**: Complete suite of commands accessible via `npx`
+- **📋 Latest Schema Support**: Full support for docs.json schema with all 2024-2025 features
+- **🎨 Interactive Configuration**: Step-by-step wizard for creating docs.json files
+- **⚡ Smart Defaults**: Pre-configured with best practices and common settings  
+- **✅ Advanced Validation**: Built-in validation for colors, URLs, navigation structures
+- **📝 Edit Mode**: Modify existing docs.json files with user-friendly interface
+- **🧭 Flexible Navigation**: Support for versioned, tabbed, grouped, and multi-language navigation
+- **📁 Project Structure**: Auto-generates folder structure and MDX files
+- **📚 Enhanced Versioning**: Production-grade documentation versioning system
+- **🔄 Migration Tools**: Convert from GitBook, Notion, Docusaurus, and other platforms
+- **🌐 Cross-Platform**: Works on Windows, macOS, and Linux
+- **🔗 External Integration**: GitHub changelog sync and automated workflows
 
 ## Quick Start
 
+### Using npx (Recommended)
+
 ```bash
 # Create a new Mintlify configuration
-npx mintlifier
+npx mintlifier init
 
-# Edit an existing configuration
-npx mintlifier --edit
+# Set up enhanced versioning for existing docs
+npx mintlifier versioning
 
-# Edit a specific config file
-npx mintlifier --edit path/to/docs.json
+# Edit an existing configuration  
+npx mintlifier edit [path/to/docs.json]
 
-# Run your Mintlify docs locally
+# Freeze current version and start new development
+npx mintlifier freeze
+
+# Generate configuration automatically (CI/CD friendly)
+npx mintlifier auto --name "My Docs" --output custom-dir
+
+# Show help and available commands
+npx mintlifier help
+```
+
+### Run your Mintlify docs
+
+```bash
 cd mintlify-docs
 npx mint@latest dev
 ```
 
 ## Installation
 
+### Option 1: Use via npx (No Installation Required)
+
 ```bash
-yarn install
-# or
+npx mintlifier <command>
+```
+
+### Option 2: Global Installation
+
+```bash
+npm install -g mintlifier
+mintlifier <command>
+```
+
+### Option 3: Local Development
+
+```bash
+git clone https://github.com/Cordtus/mintlifier.git
+cd mintlifier
 npm install
+npm link  # Make available globally
 ```
 
-## Usage
+## Commands
 
-### Create New Configuration
+### `mintlifier init`
 
-Run the interactive configuration builder:
+Create a new Mintlify documentation configuration interactively.
 
 ```bash
-yarn start
-# or
-node index.js
-# or
-./index.js
+npx mintlifier init
 ```
 
-### Edit Existing Configuration
+This command:
+- Guides you through all configuration options
+- Generates a complete docs.json file
+- Creates folder structure with sample MDX files
+- Sets up navigation and styling
 
-Edit an existing docs.json file:
+### `mintlifier versioning`
+
+Set up or manage documentation versioning.
 
 ```bash
-# Edit docs.json in current directory
-node index.js --edit
-# or
-node index.js -e
+npx mintlifier versioning
+```
+
+This command:
+- Sets up versioning for existing documentation
+- Creates working version directory (next/main/latest/current)
+- Converts navigation to versioned structure
+- Generates version management scripts
+
+### `mintlifier edit [path]`
+
+Edit an existing docs.json configuration.
+
+```bash
+# Auto-detect docs.json location
+npx mintlifier edit
 
 # Edit specific file
-node index.js --edit /path/to/docs.json
+npx mintlifier edit path/to/docs.json
 ```
 
-When you run Mintlifier in a directory with an existing docs.json, you'll be prompted to either edit it or create a new one.
+### `mintlifier freeze`
+
+Freeze current documentation version and start new development.
+
+```bash
+npx mintlifier freeze
+```
+
+This command:
+- Creates immutable copy of current version
+- Updates navigation with frozen version
+- Prompts for new development version
+- Maintains version history
+
+### `mintlifier auto`
+
+Generate configuration automatically (non-interactive).
+
+```bash
+npx mintlifier auto
+
+# With custom options
+npx mintlifier auto --name "My Docs" --output custom-dir
+```
+
+## Versioning Workflow
+
+### Initial Setup
+
+1. **Set up versioning on existing docs:**
+```bash
+npx mintlifier versioning
+```
+
+Choose your working version name:
+- `next` - For pre-release/development (recommended)
+- `main` - Follows git convention
+- `latest` - Current stable version
+- `current` - Actively developed version
+
+### Development Workflow
+
+2. **Work on your documentation:**
+- All changes happen in your working directory (e.g., `docs/next/`)
+- Snippets and assets remain shared across versions
+- Test locally with `npx mint@latest dev`
+
+3. **Freeze a version when ready:**
+```bash
+npx mintlifier freeze
+```
+
+This will:
+- Create immutable copy (e.g., `docs/v1.0.0/`)
+- Update navigation to include both versions
+- Prompt for next development version
+- Preserve all internal links correctly
+
+4. **Commit and tag:**
+```bash
+git add -A
+git commit -m "docs: release v1.0.0"
+git tag docs-v1.0.0
+git push --tags
+```
+
+### Directory Structure After Versioning
+
+```
+docs/
+├── docs.json           # Versioned navigation
+├── versions.json       # Version registry
+├── next/              # Working version
+│   ├── getting-started/
+│   ├── features/
+│   └── ...
+├── v2.0.0/            # Frozen versions
+├── v1.0.0/
+├── snippets/          # Shared resources
+└── assets/
+```
 
 ## What You'll Configure
 
@@ -79,7 +207,7 @@ When you run Mintlifier in a directory with an existing docs.json, you'll be pro
 - Primary, light, and dark colors
 - Icon library (lucide, heroicons, fontawesome, tabler, phosphor)
 - Code block themes
-- Contextual menu options (ChatGPT, Claude, Perplexity, etc.)
+- Contextual menu options (ChatGPT, Perplexity, etc.)
 
 ### 3. Navigation Structure
 - Simple pages
@@ -207,7 +335,6 @@ The new unified navigation structure supports:
 - Copy
 - View Source
 - ChatGPT
-- Claude
 - Perplexity
 - MCP
 - Cursor

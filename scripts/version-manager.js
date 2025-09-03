@@ -36,18 +36,25 @@ export async function freezeVersion(options = {}) {
   console.log(chalk.blue('   Documentation Version Manager'));
   console.log(chalk.blue('====================================\n'));
 
-  // Check if we're in the docs directory or project root
-  const docsJsonPath = await fs.pathExists('docs.json') ? 'docs.json' : 
-                       await fs.pathExists('docs/docs.json') ? 'docs/docs.json' : null;
+  // Look for docs.json in project root first, then in docs directory
+  const projectRoot = process.cwd();
+  let docsJsonPath = null;
+  
+  if (await fs.pathExists('docs.json')) {
+    docsJsonPath = 'docs.json';
+  } else if (await fs.pathExists('docs/docs.json')) {
+    docsJsonPath = 'docs/docs.json';
+  }
   
   if (!docsJsonPath) {
     console.log(chalk.red('✗ docs.json not found'));
-    console.log(chalk.yellow('Please run from your documentation directory or project root'));
+    console.log(chalk.yellow('Please run from your project root'));
     process.exit(1);
   }
 
-  const docsDir = path.dirname(docsJsonPath);
-  const isInDocsDir = docsDir === '.';
+  // Always use /docs as the documentation directory
+  const docsDir = path.join(projectRoot, 'docs');
+  await fs.ensureDir(docsDir);
   
   // Load docs.json
   const docsConfig = await fs.readJson(docsJsonPath);
@@ -72,7 +79,7 @@ export async function freezeVersion(options = {}) {
     return;
   }
 
-  // Load or create versions.json
+  // Load or create versions.json in the docs directory
   const versionsJsonPath = path.join(docsDir, 'versions.json');
   let versionsData = { versions: [], currentVersion: null, workingVersion: 'next' };
   
@@ -103,11 +110,11 @@ export async function freezeVersion(options = {}) {
     currentVersion = 'v' + currentVersion;
   }
 
-  // Check if version already exists
+  // Check if version already exists in docs directory
   const versionDir = path.join(docsDir, currentVersion);
   if (await fs.pathExists(versionDir)) {
     console.log(chalk.red(`✗ Version ${currentVersion} already exists`));
-    console.log(chalk.yellow('Frozen versions are immutable'));
+    console.log(chalk.yellow('Frozen versions are snapshots and should not be overwritten'));
     process.exit(1);
   }
 
@@ -129,11 +136,11 @@ export async function freezeVersion(options = {}) {
   console.log(chalk.cyan('\n===================================='));
   console.log(chalk.cyan('   Version Management Summary'));
   console.log(chalk.cyan('====================================\n'));
-  console.log(`  Freeze version:  ${chalk.yellow(currentVersion)} (becomes immutable)`);
+  console.log(`  Freeze version:  ${chalk.yellow(currentVersion)} (creates snapshot)`);
   console.log(`  New dev version: ${chalk.green(newVersionFinal)} (for future development)`);
   console.log(`  Working version: ${chalk.blue(versionsData.workingVersion || 'next')}\n`);
   console.log('This will:');
-  console.log(`  1. Create frozen copy at ${docsDir}/${currentVersion}/`);
+  console.log(`  1. Create frozen copy at docs/${currentVersion}/`);
   console.log('  2. Update internal document links');
   console.log('  3. Update docs.json navigation');
   console.log('  4. Update versions.json registry\n');
@@ -403,25 +410,205 @@ export async function freezeVersion(options = {}) {
   console.log(`  4. Continue development for ${chalk.green(newVersionFinal)}`);
 }
 
+// Helper to extract page paths from navigation structure based on schema.json
+function extractNavigationPaths(nav) {
+  const paths = new Set();
+  
+  function isDocumentPath(str) {
+    // Check if it's a document path (not external link or asset)
+    return typeof str === 'string' &&
+           !str.startsWith('http') && 
+           !str.startsWith('mailto:') &&
+           !str.includes('/snippets/') && 
+           !str.includes('/assets/') &&
+           !str.includes('/images/') &&
+           !str.includes('/static/') &&
+           !str.startsWith('#');
+  }
+  
+  function extractFromObj(obj) {
+    if (!obj) return;
+    
+    if (typeof obj === 'string') {
+      // Page reference
+      if (isDocumentPath(obj)) {
+        // Add .mdx extension if not present
+        const path = obj.endsWith('.mdx') ? obj : `${obj}.mdx`;
+        paths.add(path.replace(/^\//, '')); // Remove leading slash
+      }
+    } else if (Array.isArray(obj)) {
+      // Array of items
+      obj.forEach(extractFromObj);
+    } else if (typeof obj === 'object') {
+      // Handle specific navigation structures based on schema
+      
+      // Top-level navigation structures
+      if (obj.languages) extractFromObj(obj.languages);
+      if (obj.versions) extractFromObj(obj.versions);
+      if (obj.tabs) extractFromObj(obj.tabs);
+      if (obj.dropdowns) extractFromObj(obj.dropdowns);
+      if (obj.anchors) extractFromObj(obj.anchors);
+      if (obj.groups) extractFromObj(obj.groups);
+      if (obj.pages) extractFromObj(obj.pages);
+      
+      // Version structure
+      if (obj.version && (obj.tabs || obj.groups || obj.pages || obj.anchors || obj.dropdowns)) {
+        // This is a version object, extract its navigation
+        extractFromObj(obj.tabs);
+        extractFromObj(obj.groups);
+        extractFromObj(obj.pages);
+        extractFromObj(obj.anchors);
+        extractFromObj(obj.dropdowns);
+      }
+      
+      // Language structure
+      if (obj.language && (obj.tabs || obj.groups || obj.pages || obj.anchors || obj.dropdowns || obj.versions)) {
+        // This is a language object, extract its navigation
+        extractFromObj(obj.tabs);
+        extractFromObj(obj.groups);
+        extractFromObj(obj.pages);
+        extractFromObj(obj.anchors);
+        extractFromObj(obj.dropdowns);
+        extractFromObj(obj.versions);
+      }
+      
+      // Tab structure
+      if (obj.tab) {
+        // Tab can have various nested structures
+        if (obj.languages) extractFromObj(obj.languages);
+        if (obj.versions) extractFromObj(obj.versions);
+        if (obj.dropdowns) extractFromObj(obj.dropdowns);
+        if (obj.anchors) extractFromObj(obj.anchors);
+        if (obj.groups) extractFromObj(obj.groups);
+        if (obj.pages) extractFromObj(obj.pages);
+      }
+      
+      // Dropdown structure
+      if (obj.dropdown) {
+        // Dropdown can have various nested structures
+        if (obj.languages) extractFromObj(obj.languages);
+        if (obj.versions) extractFromObj(obj.versions);
+        if (obj.anchors) extractFromObj(obj.anchors);
+        if (obj.groups) extractFromObj(obj.groups);
+        if (obj.pages) extractFromObj(obj.pages);
+      }
+      
+      // Anchor structure
+      if (obj.anchor) {
+        // Anchor can have various nested structures
+        if (obj.languages) extractFromObj(obj.languages);
+        if (obj.versions) extractFromObj(obj.versions);
+        if (obj.dropdowns) extractFromObj(obj.dropdowns);
+        if (obj.groups) extractFromObj(obj.groups);
+        if (obj.pages) extractFromObj(obj.pages);
+      }
+      
+      // Group structure
+      if (obj.group) {
+        // Group has pages and can have nested groups
+        if (obj.pages) extractFromObj(obj.pages);
+        if (obj.root) extractFromObj(obj.root); // Group can have a root page
+      }
+      
+      // Menu structure (can appear in tabs)
+      if (obj.menu) extractFromObj(obj.menu);
+      
+      // Handle nested items arrays
+      if (obj.items) extractFromObj(obj.items);
+      
+      // OpenAPI references (we track these too as they generate pages)
+      if (obj.openapi && typeof obj.openapi === 'string') {
+        // OpenAPI specs generate documentation pages
+        // We don't add them to paths as they're auto-generated
+      }
+      
+      // Skip global anchors (they're external links)
+      // Already handled by not recursing into obj.global
+    }
+  }
+  
+  extractFromObj(nav);
+  return Array.from(paths);
+}
+
 // Setup versioning for existing project
 async function setupVersioningForExisting(docsConfig, docsJsonPath, docsDir) {
   console.log(chalk.cyan('\n⚙️  Setting up versioning for existing documentation...\n'));
+  
+  const projectRoot = path.dirname(docsJsonPath);
+  const isAlreadyInDocs = docsJsonPath.includes('/docs/docs.json');
+  
+  if (!isAlreadyInDocs) {
+    console.log(chalk.cyan('📁 Organizing documentation structure...\n'));
+    
+    // Extract all document paths from navigation
+    const navPaths = extractNavigationPaths(docsConfig.navigation);
+    
+    // Find all MDX files currently in the project
+    const existingMdxFiles = await glob('**/*.mdx', {
+      cwd: projectRoot,
+      ignore: ['**/node_modules/**', '**/.git/**', 'docs/**']
+    });
+    
+    // Determine which MDX files to move based on navigation
+    const filesToMove = new Set();
+    
+    // Add files referenced in navigation
+    navPaths.forEach(navPath => {
+      const cleanPath = navPath.replace(/^\//, '');
+      if (existingMdxFiles.includes(cleanPath)) {
+        filesToMove.add(cleanPath);
+      }
+    });
+    
+    // If no files found in navigation, move all MDX files
+    if (filesToMove.size === 0) {
+      existingMdxFiles.forEach(file => filesToMove.add(file));
+    }
+    
+    // Move ONLY MDX documentation files to /docs directory
+    for (const file of filesToMove) {
+      const sourcePath = path.join(projectRoot, file);
+      const targetPath = path.join(docsDir, file);
+      
+      if (await fs.pathExists(sourcePath)) {
+        await fs.ensureDir(path.dirname(targetPath));
+        await fs.move(sourcePath, targetPath, { overwrite: true });
+      }
+    }
+    
+    // DO NOT move assets, images, snippets - they stay in project root
+    // Mintlify expects them there for proper referencing
+    
+    // Move docs.json to /docs
+    if (!docsJsonPath.includes('/docs/')) {
+      const newDocsJsonPath = path.join(docsDir, 'docs.json');
+      await fs.copy(docsJsonPath, newDocsJsonPath, { overwrite: true });
+      // Keep original docs.json as backup
+      await fs.move(docsJsonPath, docsJsonPath + '.backup', { overwrite: true });
+      docsJsonPath = newDocsJsonPath;
+      docsConfig = await fs.readJson(docsJsonPath);
+    }
+    
+    console.log(chalk.green(`✓ Organized documentation files\n`));
+  }
 
   // Select working version name
   const workingVersionName = await select({
-    message: 'What should the current/working version be called?',
+    message: 'What should the current/working version be labeled?',
     choices: [
-      { value: 'next', name: 'next (recommended for pre-release)' },
-      { value: 'main', name: 'main (follows git convention)' },
       { value: 'latest', name: 'latest (current stable)' },
-      { value: 'current', name: 'current (actively developed)' }
+      { value: 'current', name: 'current (actively developed)' },
+      { value: 'next', name: 'next (pre-release)' },
+      { value: 'main', name: 'main (follows git convention)' },
+      { value: 'unreleased', name: 'unreleased (work in progress)' }
     ],
-    default: 'next'
+    default: 'latest'
   });
 
-  // Ask if they want to create the working version directory
+  // Ask if they want to create the working version directory within /docs
   const createWorkingDir = await confirm({
-    message: `Move current docs into ${workingVersionName}/ directory?`,
+    message: `Move current docs into docs/${workingVersionName}/ directory?`,
     default: true
   });
 
@@ -439,29 +626,57 @@ async function setupVersioningForExisting(docsConfig, docsJsonPath, docsDir) {
 
   const versionWithPrefix = initialVersion.startsWith('v') ? initialVersion : 'v' + initialVersion;
 
+  // Ask if they want to create an initial version snapshot
+  const createInitialSnapshot = await confirm({
+    message: 'Create an initial version snapshot from current docs?',
+    default: false
+  });
+  
   // Create versions.json
   const versionsData = {
-    versions: [],
+    versions: createInitialSnapshot ? [versionWithPrefix] : [],
     currentVersion: versionWithPrefix,
     workingVersion: workingVersionName,
     defaultVersion: workingVersionName
   };
 
   await fs.writeJson(path.join(docsDir, 'versions.json'), versionsData, { spaces: 2 });
-  console.log(chalk.green('✓ Created versions.json'));
+  console.log(chalk.green('✓ Created docs/versions.json'));
 
+  // Create initial version snapshot if requested
+  if (createInitialSnapshot) {
+    const versionDir = path.join(docsDir, versionWithPrefix);
+    await fs.ensureDir(versionDir);
+    
+    // Copy current MDX files to version directory
+    const mdxFiles = await glob('**/*.mdx', {
+      cwd: docsDir,
+      ignore: ['**/node_modules/**', '**/.git/**', 'v*.*.*/**', `${workingVersionName}/**`]
+    });
+    
+    for (const file of mdxFiles) {
+      const sourcePath = path.join(docsDir, file);
+      const targetPath = path.join(versionDir, file);
+      
+      await fs.ensureDir(path.dirname(targetPath));
+      await fs.copy(sourcePath, targetPath, { overwrite: true });
+    }
+    
+    console.log(chalk.green(`✓ Created initial version snapshot: ${versionWithPrefix}`));
+  }
+  
   // Move files to working directory if requested
   if (createWorkingDir) {
     const workingDir = path.join(docsDir, workingVersionName);
     await fs.ensureDir(workingDir);
 
-    // Get all MDX files in root
+    // Get all MDX files in docs root
     const mdxFiles = await glob('**/*.mdx', {
       cwd: docsDir,
       ignore: ['**/node_modules/**', '**/.git/**', 'v*.*.*/**', `${workingVersionName}/**`]
     });
 
-    // Move files to working directory
+    // Move MDX files to working directory
     for (const file of mdxFiles) {
       const sourcePath = path.join(docsDir, file);
       const targetPath = path.join(workingDir, file);
@@ -469,17 +684,26 @@ async function setupVersioningForExisting(docsConfig, docsJsonPath, docsDir) {
       await fs.ensureDir(path.dirname(targetPath));
       await fs.move(sourcePath, targetPath, { overwrite: true });
     }
-
-    // Move asset directories
-    const assetDirs = ['images', 'assets'];
-    for (const dir of assetDirs) {
-      const sourcePath = path.join(docsDir, dir);
-      if (await fs.pathExists(sourcePath)) {
-        await fs.move(sourcePath, path.join(workingDir, dir), { overwrite: true });
+    
+    // Clean up empty directories in docs root
+    const dirs = await glob('**/', {
+      cwd: docsDir,
+      ignore: ['v*.*.*/**', `${workingVersionName}/**`]
+    });
+    
+    for (const dir of dirs.reverse()) { // reverse to delete deepest first
+      const dirPath = path.join(docsDir, dir);
+      try {
+        const files = await fs.readdir(dirPath);
+        if (files.length === 0) {
+          await fs.remove(dirPath);
+        }
+      } catch (e) {
+        // Directory might already be removed
       }
     }
 
-    console.log(chalk.green(`✓ Moved documentation to ${workingVersionName}/ directory`));
+    console.log(chalk.green(`✓ Moved documentation to docs/${workingVersionName}/ directory`));
   }
 
   // Update docs.json navigation structure
@@ -579,9 +803,77 @@ async function setupVersioningForExisting(docsConfig, docsJsonPath, docsDir) {
       }
     }
 
+    // Create navigation array with working version
+    const versions = [versionedNav];
+    
+    // Add initial snapshot version if created
+    if (createInitialSnapshot) {
+      const snapshotNav = JSON.parse(JSON.stringify(versionedNav));
+      snapshotNav.version = versionWithPrefix;
+      delete snapshotNav.default;
+      
+      // Update paths in snapshot to include version prefix
+      function updateSnapshotPaths(obj, versionPrefix) {
+        if (typeof obj === 'string') {
+          // Only update document paths
+          if (!obj.startsWith('http') && 
+              !obj.startsWith('mailto:') &&
+              !obj.includes('/snippets/') && 
+              !obj.includes('/assets/') &&
+              !obj.includes('/images/') &&
+              !obj.includes('/static/')) {
+            // If path already has working version prefix, replace it
+            if (obj.startsWith(workingVersionName + '/')) {
+              return obj.replace(workingVersionName + '/', versionPrefix + '/');
+            }
+            // Otherwise add version prefix
+            return `${versionPrefix}/${obj}`;
+          }
+          return obj;
+        }
+        
+        if (Array.isArray(obj)) {
+          return obj.map(item => updateSnapshotPaths(item, versionPrefix));
+        }
+        
+        if (typeof obj === 'object' && obj !== null) {
+          const newObj = {};
+          for (const key in obj) {
+            if (key === 'pages' || key === 'groups' || key === 'tabs' || 
+                key === 'menu' || key === 'anchors' || key === 'dropdowns' ||
+                key === 'languages') {
+              newObj[key] = updateSnapshotPaths(obj[key], versionPrefix);
+            } else if ((key === 'group' || key === 'tab' || key === 'item' || 
+                       key === 'anchor' || key === 'dropdown' || key === 'language') && 
+                       (obj.pages || obj.groups || obj.tabs || obj.menu)) {
+              newObj[key] = obj[key];
+              if (obj.pages) newObj.pages = updateSnapshotPaths(obj.pages, versionPrefix);
+              if (obj.groups) newObj.groups = updateSnapshotPaths(obj.groups, versionPrefix);
+              if (obj.tabs) newObj.tabs = updateSnapshotPaths(obj.tabs, versionPrefix);
+              if (obj.menu) newObj.menu = updateSnapshotPaths(obj.menu, versionPrefix);
+            } else {
+              newObj[key] = obj[key];
+            }
+          }
+          return newObj;
+        }
+        
+        return obj;
+      }
+      
+      // Update all navigation fields in snapshot
+      for (const key in snapshotNav) {
+        if (key !== 'version' && key !== 'default') {
+          snapshotNav[key] = updateSnapshotPaths(snapshotNav[key], versionWithPrefix);
+        }
+      }
+      
+      versions.push(snapshotNav);
+    }
+    
     // Replace navigation with versioned structure
     docsConfig.navigation = {
-      versions: [versionedNav]
+      versions: versions
     };
     
     // Preserve global anchors if they exist
@@ -590,18 +882,20 @@ async function setupVersioningForExisting(docsConfig, docsJsonPath, docsDir) {
     }
   }
 
-  await fs.writeJson(docsJsonPath, docsConfig, { spaces: 2 });
-  console.log(chalk.green('✓ Updated docs.json with versioned navigation'));
+  // Save updated docs.json in docs directory
+  const finalDocsJsonPath = path.join(docsDir, 'docs.json');
+  await fs.writeJson(finalDocsJsonPath, docsConfig, { spaces: 2 });
+  console.log(chalk.green('✓ Updated docs/docs.json with versioned navigation'));
 
-  // Create version manager script
-  const scriptsDir = path.join(docsDir, 'scripts');
+  // Create version manager script in project root scripts directory
+  const scriptsDir = path.join(projectRoot, 'scripts');
   await fs.ensureDir(scriptsDir);
   
   const scriptPath = path.join(scriptsDir, 'freeze-version.js');
   const scriptContent = `#!/usr/bin/env node
 
 // Version freeze script for this documentation
-import { freezeVersion } from '${path.relative(scriptsDir, __filename).replace(/\\/g, '/')}';
+import { freezeVersion } from '${path.relative(scriptsDir, __filename).replace(/\\/g, '/').replace('../', '')}';
 
 freezeVersion().catch(console.error);
 `;

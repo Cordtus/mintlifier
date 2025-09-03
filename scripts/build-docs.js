@@ -124,7 +124,7 @@ async function buildDocs() {
   process.chdir(projectRoot);
   
   // Remove existing docs if present
-  const docsDir = path.join(projectRoot, 'mintlify-docs');
+  const docsDir = path.join(projectRoot, 'docs');
   if (await fs.pathExists(docsDir)) {
     console.log(chalk.yellow(' Removing existing docs directory...'));
     await fs.remove(docsDir);
@@ -191,7 +191,7 @@ async function buildDocs() {
 async function populateDocContent() {
   console.log(chalk.cyan('\n Populating documentation content...'));
   
-  const docsDir = path.join(projectRoot, 'mintlify-docs');
+  const docsDir = path.join(projectRoot, 'docs');
   
   // Create assets directory
   await fs.ensureDir(path.join(docsDir, 'assets'));
@@ -537,8 +537,8 @@ mintlify deploy
 After running Mintlifier, you'll have:
 
 \`\`\`
-mintlify-docs/
-├── mint.json           # Configuration file
+docs/
+├── docs.json           # Configuration file
 ├── introduction.mdx    # Documentation pages
 ├── installation.mdx
 ├── configuration.mdx
@@ -546,7 +546,7 @@ mintlify-docs/
 ├── favicon.svg        # Favicon file
 ├── logo.svg          # Logo file
 └── scripts/          # Versioning scripts (optional)
-    ├── version-manager.sh
+    ├── freeze-version.js
     └── sync-changelog.sh
 \`\`\`
 
@@ -967,14 +967,14 @@ jobs:
 ### Directory Layout
 
 \`\`\`
-mintlify-docs/
-├── mint.json              # Current dev version config
-├── docs/                  # Current development docs
-├── versions/
-│   ├── v1.0.0/           # Frozen version 1.0.0
-│   │   ├── .version-metadata.json
-│   │   └── ... (frozen docs)
-│   └── v1.1.0/           # Frozen version 1.1.0
+docs/
+├── docs.json              # Current dev version config
+├── latest/                # Current development docs (or custom label)
+├── v1.0.0/               # Frozen version 1.0.0
+│   ├── .version-metadata.json
+│   └── ... (frozen docs)
+├── v1.1.0/               # Frozen version 1.1.0
+├── versions.json         # Version registry
 └── changelog/
     └── release-notes.mdx  # Aggregated release notes
 \`\`\`
@@ -1328,7 +1328,7 @@ async function main() {
     
     console.log(chalk.cyan('\n Documentation build complete!'));
     console.log(chalk.yellow('\nNext steps:'));
-    console.log('  1. cd mintlify-docs');
+    console.log('  1. cd docs');
     console.log('  2. npm install -g mintlify');
     console.log('  3. mint dev');
     console.log('\nYour documentation will be available at http://localhost:3000');

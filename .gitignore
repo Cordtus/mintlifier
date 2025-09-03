@@ -29,6 +29,5 @@ tmp/
 temp/
 *.tmp
 
-# Claude AI config (private)
+# AI config (private)
 .claude
-CLAUDE.md
