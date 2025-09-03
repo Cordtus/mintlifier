@@ -59,11 +59,8 @@
     "test/",
     "workflow-templates/",
     "schema.json",
-    "docs-json-schema.json", 
+    "docs-json-schema.json",
     "docs-json-schema.d.ts",
-    "DOCS-JSON-SCHEMA.md",
-    "VERSIONING.md",
-    "MIGRATION.md",
     "LICENSE",
     "README.md"
   ]

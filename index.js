@@ -647,21 +647,24 @@ async function generateProjectStructure(config) {
   const spinner = ora('Generating project structure...').start();
 
   try {
-    // Create output directory
-    const outputDir = path.join(process.cwd(), 'docs');
-    await fs.ensureDir(outputDir);
+    // Create output directory (project root)
+    const outputDir = process.cwd();
+    
+    // Create docs subdirectory for version-specific content
+    const docsDir = path.join(outputDir, 'docs');
+    await fs.ensureDir(docsDir);
 
-    // Clean config for mint.json (remove internal fields)
+    // Clean config for docs.json (remove internal fields)
     const cleanConfig = { ...config };
     delete cleanConfig._originalFavicon;
     delete cleanConfig._originalLogo;
     delete cleanConfig._originalLogos;
 
-    // Write docs.json
+    // Write docs.json to project root
     await fs.writeJson(path.join(outputDir, 'docs.json'), cleanConfig, { spaces: 2 });
 
     // Create directory structure based on navigation
-    const createPages = async (pages, baseDir = outputDir) => {
+    const createPages = async (pages, baseDir = docsDir) => {
       if (!pages) return;
       for (const page of pages) {
         if (typeof page === 'string') {
@@ -684,7 +687,7 @@ Add your content here.
       }
     };
 
-    const processGroups = async (groups, baseDir = outputDir) => {
+    const processGroups = async (groups, baseDir = docsDir) => {
       if (!groups) return;
       for (const group of groups) {
         if (group.pages) {
@@ -709,7 +712,7 @@ Add your content here.
       }
       if (config.navigation.versions) {
         for (const version of config.navigation.versions) {
-          const versionDir = path.join(outputDir, version.version);
+          const versionDir = path.join(docsDir, version.version);
           await fs.ensureDir(versionDir);
           if (version.pages) await createPages(version.pages, versionDir);
           if (version.groups) await processGroups(version.groups, versionDir);
@@ -723,8 +726,9 @@ Add your content here.
       }
     }
 
-    // Create assets directory
-    await fs.ensureDir(path.join(outputDir, 'images'));
+    // Create assets and snippets directories at project root
+    await fs.ensureDir(path.join(outputDir, 'assets'));
+    await fs.ensureDir(path.join(outputDir, 'snippets'));
 
     // Handle favicon
     if (config.favicon && !config.favicon.startsWith('http')) {
@@ -817,11 +821,11 @@ Add your content here.
 
     console.log(chalk.green('\n Mintlify documentation project created!'));
     console.log(chalk.cyan(` Location: ${outputDir}`));
+    console.log(chalk.gray(` Structure: docs.json, assets/, snippets/, docs/{versions}/`));
 
     console.log(chalk.yellow('\n Next steps:'));
-    console.log('  1. Navigate to the docs directory');
-    console.log('  2. Run locally: npx mint@latest dev');
-    console.log('  3. Deploy: npx mint@latest deploy');
+    console.log('  1. Run locally: npx mint@latest dev');
+    console.log('  2. Deploy: npx mint@latest deploy');
     console.log(chalk.blue('\n Documentation: https://mintlify.com/docs'));
 
   } catch (error) {
@@ -906,7 +910,7 @@ async function main() {
         if (shouldSetupVersioning) {
           console.log(chalk.blue('🔧 Setting up versioning...'));
           try {
-            const outputDir = path.join(process.cwd(), 'docs');
+            const outputDir = process.cwd();
             const { setupVersioning } = await import('./lib/versioning.js');
             await setupVersioning(outputDir);
             console.log(chalk.green('\nDocumentation created with versioning enabled.'));
