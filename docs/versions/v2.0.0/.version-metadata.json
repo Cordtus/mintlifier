@@ -1,9 +1,0 @@
-{
-  "version": "v2.0.0",
-  "frozenDate": "2025-08-25",
-  "frozenTimestamp": "2025-08-25T20:52:15.605Z",
-  "nextVersion": "v2.1.0",
-  "frozenBy": "cordt",
-  "gitCommit": "1b32072692a3520fa9dbd2ba44cb46976122af50",
-  "nodeVersion": "v22.17.0"
-}

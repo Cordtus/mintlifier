@@ -1,5 +1,0 @@
-<svg viewBox="0 0 200 50" xmlns="http://www.w3.org/2000/svg">
-  <rect width="40" height="40" x="5" y="5" rx="8" fill="#0D9373"/>
-  <path d="M15 15 L15 35 M20 20 L20 35 M25 15 L25 35 M30 25 L30 35 M35 15 L35 35" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  <text x="50" y="30" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="#0D9373">Mintlifier</text>
-</svg>
