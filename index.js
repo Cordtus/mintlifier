@@ -32,13 +32,7 @@ function makeRelativePath(filePath) {
   return filePath;
 }
 
-console.log(chalk.cyan.bold('\n Mintlifier - Mintlify docs.json Configuration Builder\n'));
-console.log(chalk.gray('Building for the latest Mintlify (2024-2025) with docs.json\n'));
-
-// Handle command-line arguments
-const args = process.argv.slice(2);
-const isEditMode = args.includes('--edit') || args.includes('-e');
-const configPath = args.find(arg => arg.endsWith('.json'));
+// Main logic moved to end of file for proper execution
 
 async function buildDocsConfig() {
   const config = {
@@ -261,7 +255,6 @@ async function buildDocsConfig() {
           { name: 'Copy', value: 'copy', checked: true },
           { name: 'View Source', value: 'view', checked: true },
           { name: 'ChatGPT', value: 'chatgpt' },
-          { name: 'Claude', value: 'claude' },
           { name: 'Perplexity', value: 'perplexity' },
           { name: 'MCP', value: 'mcp' },
           { name: 'Cursor', value: 'cursor' },
@@ -655,7 +648,7 @@ async function generateProjectStructure(config) {
 
   try {
     // Create output directory
-    const outputDir = path.join(process.cwd(), 'mintlify-docs');
+    const outputDir = path.join(process.cwd(), 'docs');
     await fs.ensureDir(outputDir);
 
     // Clean config for mint.json (remove internal fields)
@@ -815,47 +808,18 @@ Add your content here.
       }
     }
 
-    // Clean up any MDX issues that might cause parsing errors
-    spinner.text = 'Cleaning up MDX files...';
-    const { execSync } = await import('child_process');
-    try {
-      // Fix ResponseExample closing tag followed by extra backticks
-      execSync(`find "${outputDir}" -name "*.mdx" -type f -exec sed -i '' '/^<\\/ResponseExample>$/{ n; /^\\\`\\\`\\\`$/d; }' {} \\; 2>/dev/null || true`, { stdio: 'ignore' });
-      // Fix any standalone triple backticks that might cause issues
-      execSync(`find "${outputDir}" -name "*.mdx" -type f -exec sed -i '' '/^\\\`\\\`\\\`$/{ N; s/\\\`\\\`\\\`\\n\\\`\\\`\\\`//g; }' {} \\; 2>/dev/null || true`, { stdio: 'ignore' });
-    } catch (cleanupError) {
-      // Ignore cleanup errors, they're not critical
-    }
+    // Clean up any MDX issues that might cause parsing errors (skip for now to avoid hanging)
+    spinner.text = 'Finalizing files...';
+    // Note: MDX cleanup disabled during testing to avoid exec issues
+    // TODO: Re-enable for production with better error handling
 
     spinner.succeed('Project structure generated successfully!');
-
-    // Set up versioning system if requested
-    const versioningConfig = await setupVersioning(outputDir);
 
     console.log(chalk.green('\n Mintlify documentation project created!'));
     console.log(chalk.cyan(` Location: ${outputDir}`));
 
-    if (versioningConfig) {
-      console.log(chalk.green('\n Versioning system configured!'));
-      console.log(`  - Initial version: ${versioningConfig.initialVersion}`);
-      if (versioningConfig.changelogSync?.enabled) {
-        console.log(`  - Changelog sync from: ${versioningConfig.changelogSync.repoOwner}/${versioningConfig.changelogSync.repoName}`);
-        if (versioningConfig.autoVersioning) {
-          console.log(`  - Auto-versioning on releases: Enabled`);
-        }
-      }
-      console.log(chalk.yellow('\n Versioning commands:'));
-      console.log('  - Manual freeze: ./scripts/version-manager.sh');
-      if (versioningConfig.changelogSync?.enabled) {
-        console.log('  - Sync changelog: ./scripts/sync-changelog.sh');
-        if (versioningConfig.autoVersioning) {
-          console.log('  - Auto version (GitHub Actions): Triggered on release');
-        }
-      }
-    }
-
     console.log(chalk.yellow('\n Next steps:'));
-    console.log('  1. Navigate to the mintlify-docs directory');
+    console.log('  1. Navigate to the docs directory');
     console.log('  2. Run locally: npx mint@latest dev');
     console.log('  3. Deploy: npx mint@latest deploy');
     console.log(chalk.blue('\n Documentation: https://mintlify.com/docs'));
@@ -868,6 +832,14 @@ Add your content here.
 }
 
 async function main() {
+  console.log(chalk.cyan.bold('\n Mintlifier - Mintlify docs.json Configuration Builder\n'));
+  console.log(chalk.gray('Building for the latest Mintlify (2024-2025) with docs.json\n'));
+
+  // Handle command-line arguments
+  const args = process.argv.slice(2);
+  const isEditMode = args.includes('--edit') || args.includes('-e');
+  const configPath = args.find(arg => arg.endsWith('.json'));
+
   try {
     // Handle direct edit mode from command line
     if (isEditMode) {
@@ -922,6 +894,29 @@ async function main() {
 
       if (proceed) {
         await generateProjectStructure(config);
+        
+        // Prompt for versioning setup after project generation
+        console.log(chalk.cyan('\nDocumentation versioning setup:'));
+        
+        const shouldSetupVersioning = await confirm({
+          message: 'Set up versioning system now?',
+          default: true
+        });
+        
+        if (shouldSetupVersioning) {
+          console.log(chalk.blue('🔧 Setting up versioning...'));
+          try {
+            const outputDir = path.join(process.cwd(), 'docs');
+            const { setupVersioning } = await import('./lib/versioning.js');
+            await setupVersioning(outputDir);
+            console.log(chalk.green('\nDocumentation created with versioning enabled.'));
+          } catch (versioningError) {
+            console.log(chalk.red('\n❌ Versioning setup failed:'), versioningError.message);
+            console.log(chalk.yellow('Documentation created without versioning'));
+          }
+        } else {
+          console.log(chalk.gray('\nYou can set up versioning later with: npx mintlifier versioning'));
+        }
       } else {
         console.log(chalk.yellow('\n Configuration not saved. Run the tool again when ready!'));
       }
@@ -934,6 +929,15 @@ async function main() {
       process.exit(1);
     }
   }
+  
+  // Ensure process exits cleanly
+  process.exit(0);
 }
 
-main();
+// Export for use as npm module
+export default main;
+
+// Run if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
