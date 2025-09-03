@@ -1,0 +1,592 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mintlify.com/docs.json",
+  "title": "Mintlify Documentation Configuration (docs.json)",
+  "description": "Configuration schema for Mintlify documentation projects using docs.json format (2024-2025)",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri",
+      "default": "https://mintlify.com/docs.json",
+      "description": "Schema reference for IDE support"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The name of your documentation site"
+    },
+    "description": {
+      "type": "string",
+      "description": "A brief description of your documentation"
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["mint", "maple", "palm", "willow", "linden", "almond", "aspen"],
+      "default": "mint",
+      "description": "The visual theme for your documentation"
+    },
+    "colors": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$",
+          "description": "Primary brand color in hex format"
+        },
+        "light": {
+          "type": "string",
+          "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$",
+          "description": "Light mode accent color"
+        },
+        "dark": {
+          "type": "string",
+          "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$",
+          "description": "Dark mode accent color"
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "light": {
+              "type": "string",
+              "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
+            },
+            "dark": {
+              "type": "string",
+              "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
+            }
+          }
+        },
+        "anchors": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
+                },
+                "to": {
+                  "type": "string",
+                  "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
+                }
+              },
+              "required": ["from", "to"]
+            }
+          ]
+        }
+      },
+      "required": ["primary"],
+      "additionalProperties": false
+    },
+    "favicon": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to favicon file"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "light": {"type": "string"},
+            "dark": {"type": "string"}
+          },
+          "required": ["light", "dark"]
+        }
+      ]
+    },
+    "logo": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to logo file for all modes"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "light": {"type": "string"},
+            "dark": {"type": "string"},
+            "href": {"type": "string", "format": "uri"}
+          },
+          "required": ["light", "dark"]
+        }
+      ]
+    },
+    "layout": {
+      "type": "string",
+      "enum": ["topnav", "sidenav", "solidSidenav"],
+      "default": "sidenav"
+    },
+    "rounded": {
+      "type": "string",
+      "enum": ["default", "sharp"],
+      "default": "default"
+    },
+    "icons": {
+      "type": "object",
+      "properties": {
+        "library": {
+          "type": "string",
+          "enum": ["lucide", "heroicons", "fontawesome", "tabler", "phosphor"],
+          "default": "lucide"
+        }
+      }
+    },
+    "styling": {
+      "type": "object",
+      "properties": {
+        "codeblocks": {
+          "type": "string",
+          "enum": ["system", "light", "dark"],
+          "default": "system"
+        }
+      }
+    },
+    "contextual": {
+      "type": "object",
+      "properties": {
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"]
+          }
+        }
+      }
+    },
+    "navigation": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "Simple navigation structure",
+          "items": {
+            "oneOf": [
+              {"type": "string"},
+              {
+                "type": "object",
+                "properties": {
+                  "group": {"type": "string"},
+                  "pages": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {"type": "string"},
+                        {"$ref": "#/properties/navigation/oneOf/0/items/oneOf/1"}
+                      ]
+                    }
+                  }
+                },
+                "required": ["group", "pages"]
+              }
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "description": "Advanced navigation with versions, tabs, etc.",
+          "properties": {
+            "pages": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "group": {"type": "string"},
+                  "pages": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  }
+                },
+                "required": ["group", "pages"]
+              }
+            },
+            "tabs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tab": {"type": "string"},
+                  "pages": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "group": {"type": "string"},
+                        "pages": {
+                          "type": "array",
+                          "items": {"type": "string"}
+                        }
+                      },
+                      "required": ["group", "pages"]
+                    }
+                  }
+                }
+              }
+            },
+            "versions": {
+              "type": "array",
+              "description": "Versioned navigation structure",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "version": {"type": "string"},
+                  "default": {"type": "boolean"},
+                  "pages": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "group": {"type": "string"},
+                        "pages": {
+                          "type": "array",
+                          "items": {"type": "string"}
+                        }
+                      },
+                      "required": ["group", "pages"]
+                    }
+                  },
+                  "tabs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tab": {"type": "string"},
+                        "pages": {
+                          "type": "array",
+                          "items": {"type": "string"}
+                        },
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "group": {"type": "string"},
+                              "pages": {
+                                "type": "array",
+                                "items": {"type": "string"}
+                              }
+                            },
+                            "required": ["group", "pages"]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": ["version"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "openapi": {
+      "oneOf": [
+        {"type": "string"},
+        {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      ]
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "baseUrl": {
+          "oneOf": [
+            {"type": "string", "format": "uri"},
+            {
+              "type": "array",
+              "items": {"type": "string", "format": "uri"}
+            }
+          ]
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": ["bearer", "basic", "key", "none"]
+            },
+            "name": {"type": "string"},
+            "inputPrefix": {"type": "string"}
+          }
+        },
+        "playground": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["show", "simple", "hide"],
+              "default": "show"
+            }
+          }
+        }
+      }
+    },
+    "footer": {
+      "type": "object",
+      "properties": {
+        "socials": {
+          "type": "object",
+          "patternProperties": {
+            "^(x|twitter|github|discord|slack|linkedin|youtube|website|facebook|instagram)$": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "analytics": {
+      "type": "object",
+      "properties": {
+        "ga4": {
+          "type": "object",
+          "properties": {
+            "measurementId": {
+              "type": "string",
+              "pattern": "^G-"
+            }
+          },
+          "required": ["measurementId"]
+        },
+        "gtm": {
+          "type": "object",
+          "properties": {
+            "containerId": {
+              "type": "string",
+              "pattern": "^GTM-"
+            }
+          },
+          "required": ["containerId"]
+        },
+        "posthog": {
+          "type": "object",
+          "properties": {
+            "apiKey": {
+              "type": "string",
+              "pattern": "^phc_"
+            },
+            "apiHost": {"type": "string", "format": "uri"}
+          },
+          "required": ["apiKey"]
+        },
+        "mixpanel": {
+          "type": "object",
+          "properties": {
+            "projectToken": {"type": "string"}
+          },
+          "required": ["projectToken"]
+        },
+        "amplitude": {
+          "type": "object",
+          "properties": {
+            "apiKey": {"type": "string"}
+          },
+          "required": ["apiKey"]
+        },
+        "segment": {
+          "type": "object",
+          "properties": {
+            "key": {"type": "string"}
+          },
+          "required": ["key"]
+        },
+        "heap": {
+          "type": "object",
+          "properties": {
+            "appId": {"type": "string"}
+          },
+          "required": ["appId"]
+        },
+        "clearbit": {
+          "type": "object",
+          "properties": {
+            "publicApiKey": {"type": "string"}
+          },
+          "required": ["publicApiKey"]
+        },
+        "fathom": {
+          "type": "object",
+          "properties": {
+            "siteId": {"type": "string"}
+          },
+          "required": ["siteId"]
+        },
+        "hotjar": {
+          "type": "object",
+          "properties": {
+            "hjid": {"type": "string"},
+            "hjsv": {"type": "string"}
+          },
+          "required": ["hjid", "hjsv"]
+        },
+        "koala": {
+          "type": "object",
+          "properties": {
+            "publicKey": {"type": "string"}
+          },
+          "required": ["publicKey"]
+        },
+        "plausible": {
+          "type": "object",
+          "properties": {
+            "domain": {"type": "string"}
+          },
+          "required": ["domain"]
+        },
+        "logrocket": {
+          "type": "object",
+          "properties": {
+            "appId": {"type": "string"}
+          },
+          "required": ["appId"]
+        },
+        "pirsch": {
+          "type": "object",
+          "properties": {
+            "code": {"type": "string"}
+          },
+          "required": ["code"]
+        }
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "properties": {
+        "thumbsRating": {"type": "boolean"},
+        "suggestEdit": {"type": "boolean"},
+        "raiseIssue": {"type": "boolean"}
+      }
+    },
+    "search": {
+      "type": "object",
+      "properties": {
+        "prompt": {"type": "string"},
+        "placeholder": {"type": "string"},
+        "location": {
+          "type": "string",
+          "enum": ["side", "top"],
+          "default": "side"
+        }
+      }
+    },
+    "appearance": {
+      "type": "object",
+      "properties": {
+        "default": {
+          "type": "string",
+          "enum": ["light", "dark", "system"],
+          "default": "system"
+        },
+        "strict": {"type": "boolean"}
+      }
+    },
+    "background": {
+      "type": "object",
+      "properties": {
+        "style": {
+          "type": "string",
+          "enum": ["gradient", "grid", "windows"]
+        },
+        "color": {
+          "type": "object",
+          "properties": {
+            "light": {"type": "string"},
+            "dark": {"type": "string"}
+          }
+        }
+      }
+    },
+    "backgroundImage": {"type": "string"},
+    "font": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "family": {"type": "string"},
+            "weight": {"type": "number"},
+            "url": {"type": "string", "format": "uri"},
+            "format": {
+              "type": "string",
+              "enum": ["woff", "woff2"]
+            }
+          },
+          "required": ["family"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "headings": {
+              "type": "object",
+              "properties": {
+                "family": {"type": "string"},
+                "weight": {"type": "number"}
+              }
+            },
+            "body": {
+              "type": "object",
+              "properties": {
+                "family": {"type": "string"},
+                "weight": {"type": "number"}
+              }
+            }
+          }
+        }
+      ]
+    },
+    "integrations": {
+      "type": "object",
+      "properties": {
+        "intercom": {"type": "string"},
+        "frontchat": {"type": "string"},
+        "osano": {"type": "string"}
+      }
+    },
+    "redirects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {"type": "string"},
+          "destination": {"type": "string"},
+          "permanent": {"type": "boolean"}
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "seo": {
+      "type": "object",
+      "properties": {
+        "indexHiddenPages": {"type": "boolean"},
+        "indexing": {
+          "type": "string",
+          "enum": ["navigable", "all"]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    }
+  },
+  "required": ["name", "navigation"],
+  "additionalProperties": false
+}
