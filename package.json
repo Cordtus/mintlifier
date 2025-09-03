@@ -1,11 +1,11 @@
 {
   "name": "mintlifier",
-  "version": "2.0.0",
-  "description": "Interactive CLI tool for building Mintlify docs.json configuration with 2024-2025 schema support",
+  "version": "2.1.0",
+  "description": "Interactive CLI tool for building Mintlify docs.json configuration with enhanced versioning, migration tools, and 2024-2025 schema support",
   "type": "module",
   "main": "index.js",
   "bin": {
-    "mintlifier": "./index.js"
+    "mintlifier": "./bin/mintlifier.js"
   },
   "scripts": {
     "start": "node index.js",
@@ -20,9 +20,14 @@
     "generator",
     "configuration",
     "versioning",
+    "migration",
+    "docs.json",
+    "mdx",
     "openapi",
     "swagger",
-    "mdx"
+    "gitbook",
+    "notion",
+    "docusaurus"
   ],
   "author": "Cordt <cordtus@gmail.com>",
   "license": "MIT",
@@ -46,13 +51,19 @@
   },
   "preferGlobal": false,
   "files": [
+    "bin/",
     "index.js",
+    "automate-config.js",
     "lib/",
     "scripts/",
+    "test/",
     "workflow-templates/",
-    "docs-json-schema.json",
+    "schema.json",
+    "docs-json-schema.json", 
     "docs-json-schema.d.ts",
     "DOCS-JSON-SCHEMA.md",
+    "VERSIONING.md",
+    "MIGRATION.md",
     "LICENSE",
     "README.md"
   ]

@@ -6,7 +6,7 @@ import path from 'path';
 
 // Configuration data
 const config = {
-  name: 'Enterprise API Platform',
+  name: process.env.MINTLIFY_PROJECT_NAME || 'Enterprise API Platform',
   favicon: '/favicon.svg',
   theme: 'mint',
   layout: 'solidSidenav',
@@ -99,7 +99,7 @@ async function generateConfig() {
 
   try {
     // Create output directory
-    const outputDir = path.join(process.cwd(), 'mintlify-docs');
+    const outputDir = path.join(process.cwd(), process.env.MINTLIFY_OUTPUT_DIR || 'mintlify-docs');
     await fs.ensureDir(outputDir);
 
     // Write docs.json
