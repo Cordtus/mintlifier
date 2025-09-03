@@ -1,328 +1,200 @@
-# Mintlifier - Interactive Mintlify docs.json Configuration Builder
+# Mintlifier
 
-A powerful CLI tool for creating and managing Mintlify documentation configurations with the latest docs.json schema (2024-2025), featuring advanced versioning and project structure management.
+Interactive CLI for creating and managing Mintlify documentation with the latest docs.json schema, featuring advanced versioning and project structure management.
 
 ## Features
 
-- **🎯 Modern CLI Commands**: Complete suite of commands accessible via `npx`
-- **📋 Latest Schema Support**: Full support for docs.json schema with all 2024-2025 features
-- **🎨 Interactive Configuration**: Step-by-step wizard for creating docs.json files
-- **⚡ Smart Defaults**: Pre-configured with best practices and common settings  
-- **✅ Advanced Validation**: Built-in validation for colors, URLs, navigation structures
-- **📝 Edit Mode**: Modify existing docs.json files with user-friendly interface
-- **🧭 Flexible Navigation**: Support for versioned, tabbed, grouped, and multi-language navigation
-- **📁 Project Structure**: Auto-generates folder structure and MDX files
-- **📚 Enhanced Versioning**: Production-grade documentation versioning system
-- **🔄 Migration Tools**: Convert from GitBook, Notion, Docusaurus, and other platforms
-- **🌐 Cross-Platform**: Works on Windows, macOS, and Linux
-- **🔗 External Integration**: GitHub changelog sync and automated workflows
-
-## Quick Start
-
-### Using npx (Recommended)
-
-```bash
-# Create a new Mintlify configuration
-npx mintlifier init
-
-# Set up enhanced versioning for existing docs
-npx mintlifier versioning
-
-# Edit an existing configuration  
-npx mintlifier edit [path/to/docs.json]
-
-# Freeze current version and start new development
-npx mintlifier freeze
-
-# Generate configuration automatically (CI/CD friendly)
-npx mintlifier auto --name "My Docs" --output custom-dir
-
-# Show help and available commands
-npx mintlifier help
-```
-
-### Run your Mintlify docs
-
-```bash
-cd mintlify-docs
-npx mint@latest dev
-```
+- **Interactive Configuration** - Step-by-step wizard for docs.json files
+- **Enhanced Versioning** - Production-grade documentation versioning system
+- **Migration Tools** - Convert from GitBook, Notion, Docusaurus, and other platforms
+- **Cross-Platform** - Works on Windows, macOS, and Linux
+- **Modern Schema** - Full support for 2024-2025 docs.json format
+- **External Integration** - GitHub changelog sync and automated workflows
 
 ## Installation
 
-### Option 1: Use via npx (No Installation Required)
-
 ```bash
+# Use directly (recommended)
 npx mintlifier <command>
-```
 
-### Option 2: Global Installation
-
-```bash
+# Or install globally
 npm install -g mintlifier
-mintlifier <command>
-```
-
-### Option 3: Local Development
-
-```bash
-git clone https://github.com/Cordtus/mintlifier.git
-cd mintlifier
-npm install
-npm link  # Make available globally
 ```
 
 ## Commands
 
-### `mintlifier init`
+```bash
+npx mintlifier init              # Create new documentation
+npx mintlifier versioning       # Setup versioning system
+npx mintlifier edit [path]       # Edit existing docs.json
+npx mintlifier freeze            # Freeze current version
+npx mintlifier auto              # Generate automatically
+```
 
-Create a new Mintlify documentation configuration interactively.
+## Quick Start
+
+### Create Documentation
 
 ```bash
 npx mintlifier init
 ```
 
-This command:
-- Guides you through all configuration options
-- Generates a complete docs.json file
-- Creates folder structure with sample MDX files
-- Sets up navigation and styling
+Follow prompts to configure:
+- Name and branding
+- Theme (mint, maple, palm, willow, linden, almond, aspen)
+- Colors and styling  
+- Navigation structure
+- API documentation
+- Analytics and features
 
-### `mintlifier versioning`
-
-Set up or manage documentation versioning.
-
-```bash
-npx mintlifier versioning
-```
-
-This command:
-- Sets up versioning for existing documentation
-- Creates working version directory (next/main/latest/current)
-- Converts navigation to versioned structure
-- Generates version management scripts
-
-### `mintlifier edit [path]`
-
-Edit an existing docs.json configuration.
-
-```bash
-# Auto-detect docs.json location
-npx mintlifier edit
-
-# Edit specific file
-npx mintlifier edit path/to/docs.json
-```
-
-### `mintlifier freeze`
-
-Freeze current documentation version and start new development.
-
-```bash
-npx mintlifier freeze
-```
-
-This command:
-- Creates immutable copy of current version
-- Updates navigation with frozen version
-- Prompts for new development version
-- Maintains version history
-
-### `mintlifier auto`
-
-Generate configuration automatically (non-interactive).
-
-```bash
-npx mintlifier auto
-
-# With custom options
-npx mintlifier auto --name "My Docs" --output custom-dir
-```
-
-## Versioning Workflow
-
-### Initial Setup
-
-1. **Set up versioning on existing docs:**
-```bash
-npx mintlifier versioning
-```
-
-Choose your working version name:
-- `next` - For pre-release/development (recommended)
-- `main` - Follows git convention
-- `latest` - Current stable version
-- `current` - Actively developed version
-
-### Development Workflow
-
-2. **Work on your documentation:**
-- All changes happen in your working directory (e.g., `docs/next/`)
-- Snippets and assets remain shared across versions
-- Test locally with `npx mint@latest dev`
-
-3. **Freeze a version when ready:**
-```bash
-npx mintlifier freeze
-```
-
-This will:
-- Create immutable copy (e.g., `docs/v1.0.0/`)
-- Update navigation to include both versions
-- Prompt for next development version
-- Preserve all internal links correctly
-
-4. **Commit and tag:**
-```bash
-git add -A
-git commit -m "docs: release v1.0.0"
-git tag docs-v1.0.0
-git push --tags
-```
-
-### Directory Structure After Versioning
+### Generated Structure
 
 ```
 docs/
-├── docs.json           # Versioned navigation
-├── versions.json       # Version registry
-├── next/              # Working version
-│   ├── getting-started/
-│   ├── features/
-│   └── ...
-├── v2.0.0/            # Frozen versions
-├── v1.0.0/
-├── snippets/          # Shared resources
-└── assets/
+├── docs.json           # Configuration
+├── introduction.mdx    # Sample pages
+├── getting-started.mdx
+├── images/            # Assets
+└── snippets/          # Shared components
 ```
 
-## What You'll Configure
-
-### 1. Basic Information
-- Documentation name and description
-- Favicon and logo (with light/dark mode support)
-- Theme selection (mint, maple, palm, willow, linden, almond, aspen)
-
-### 2. Colors & Styling
-- Primary, light, and dark colors
-- Icon library (lucide, heroicons, fontawesome, tabler, phosphor)
-- Code block themes
-- Contextual menu options (ChatGPT, Perplexity, etc.)
-
-### 3. Navigation Structure
-- Simple pages
-- Grouped sections
-- Tabbed navigation
-- Multi-version documentation
-- Multi-language support
-- Dropdown menus and anchors
-
-### 4. API Documentation
-- Multiple OpenAPI/Swagger files
-- API base URL and authentication
-- Interactive playground modes
-
-### 5. Analytics & Features
-- 14 analytics providers (GA4, PostHog, Mixpanel, Amplitude, etc.)
-- Social media integration
-- Feedback widgets
-- Search configuration
-- SEO optimization
-
-## Generated Structure
-
-```
-mintlify-docs/
-├── docs.json          # Your configuration file (with schema reference)
-├── favicon.svg        # Favicon placeholder
-├── logo-light.svg     # Light mode logo
-├── logo-dark.svg      # Dark mode logo
-├── images/            # Assets directory
-├── index.mdx          # Homepage
-├── getting-started/   # Grouped content
-│   ├── overview.mdx
-│   ├── installation.mdx
-│   └── ...
-├── v2.0/              # Versioned content (optional)
-│   ├── index.mdx
-│   └── changelog.mdx
-└── openapi-v1.json    # OpenAPI specs (multiple supported)
-```
-
-## Configuration Editor
-
-### Edit Mode
-
-Modify existing configurations interactively:
+### Run Documentation
 
 ```bash
-# Edit docs.json in current directory
-npx mintlifier --edit
-
-# Edit specific file
-npx mintlifier --edit ~/projects/docs/docs.json
+cd docs
+npx mint@latest dev
 ```
 
-The editor supports all docs.json properties including:
-- Theme & color customization
-- Navigation restructuring
-- Analytics integration
-- SEO optimization
-- And much more!
+## Versioning
 
-### Safety Features
-- **Automatic Backup**: Creates timestamped backup before saving changes
-- **Validation**: Checks configuration against Mintlify schema
-- **Compatibility Warnings**: Alerts for incompatible option combinations
-- **Preview**: View full configuration before saving
+Enable documentation versioning for release management:
 
-## Schema Support
+```bash
+npx mintlifier versioning
+```
 
-### Complete docs.json Schema (2024-2025)
+### Example Workflow
 
-Mintlifier supports the latest Mintlify schema with:
+**Initial Setup:**
+```bash
+npx mintlifier init              # Create docs
+npx mintlifier versioning       # Enable versioning
+```
 
-- **Full Property Coverage**: All 40+ configuration properties
-- **Type Safety**: Built-in validation for all field types
-- **Schema Reference**: Automatic `$schema` inclusion for IDE support
-- **Migration Support**: Handles legacy mint.json to docs.json conversion
+**Development Cycle:**
+```bash
+# Work on documentation in docs/next/ (working directory)
+# When ready to release v1.0.0:
+npx mintlifier freeze
+# Enter current version: v1.0.0
+# Enter next version: v1.1.0
+```
 
-### Navigation Flexibility
+**Result Structure:**
+```
+project/
+├── docs.json              # Version-aware navigation
+├── versions.json          # Version registry
+├── docs/
+│   ├── next/              # Active development (v1.1.0)
+│   │   ├── introduction.mdx
+│   │   └── getting-started.mdx
+│   └── v1.0.0/            # Frozen v1.0.0 docs
+│       ├── introduction.mdx
+│       └── getting-started.mdx
+├── snippets/              # Shared components
+└── images/                # Shared assets
+```
 
-The new unified navigation structure supports:
-- Simple page lists
-- Grouped content organization  
-- Tabbed interfaces
-- Multi-version documentation
-- Internationalization with 17 languages
-- Dropdown menus and anchor sections
+### Benefits
+
+- **Historical Accuracy** - Frozen versions preserve exact documentation state
+- **Active Development** - Continue working on next version without affecting released docs
+- **External Changelog** - Automatically sync release notes from GitHub
+- **CI/CD Integration** - Automated version freezing on releases
+
+## Navigation Types
+
+**Simple Pages:**
+```json
+{
+  "navigation": {
+    "pages": ["intro", "guide", "api"]
+  }
+}
+```
+
+**Grouped:**
+```json
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["intro", "setup"]
+      }
+    ]
+  }
+}
+```
+
+**Versioned (Recommended):**
+```json
+{
+  "navigation": {
+    "versions": [
+      {
+        "version": "next",
+        "default": true,
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started", 
+                "pages": ["docs/next/intro", "docs/next/setup"]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "version": "v1.0.0",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Getting Started",
+                "pages": ["docs/v1.0.0/intro", "docs/v1.0.0/setup"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ## Configuration Options
 
-### Themes (2024-2025)
-- `mint` - Default modern theme
+### Themes
+- `mint` - Default modern
 - `maple` - Clean professional
-- `palm` - Tropical vibrant
-- `willow` - Soft and elegant
-- `linden` - Nature-inspired
-- `almond` - Warm and inviting
-- `aspen` - Cool and minimal
+- `palm` - Vibrant tropical
+- `willow` - Soft elegant
+- `linden` - Nature inspired
+- `almond` - Warm inviting
+- `aspen` - Cool minimal
 
-### Analytics Providers (14 Supported)
-- Google Analytics 4 (GA4)
-- Google Tag Manager (GTM)
+### Analytics Providers
+- Google Analytics 4
 - PostHog
 - Mixpanel
 - Amplitude
 - Segment
-- Heap
-- Clearbit
-- Fathom
-- Hotjar
-- Koala
-- Plausible
-- LogRocket
-- Pirsch
+- Heap, Clearbit, Fathom, Hotjar, Koala, Plausible, LogRocket, Pirsch
 
 ### Icon Libraries
 - Lucide (recommended)
@@ -331,122 +203,146 @@ The new unified navigation structure supports:
 - Tabler
 - Phosphor
 
-### Contextual Menu Options
-- Copy
-- View Source
-- ChatGPT
-- Perplexity
-- MCP
-- Cursor
-- VS Code
+## Migration
 
-### Supported Languages
-- English (en)
-- Chinese (zh, zh-Hans, zh-Hant)
-- Spanish (es)
-- French (fr)
-- German (de)
-- Japanese (ja)
-- Korean (ko)
-- Portuguese (pt, pt-BR)
-- Italian (it)
-- Russian (ru)
-- Arabic (ar)
-- Turkish (tr)
-- Indonesian (id)
+### From Existing Mintlify Project
 
-## Automation Script
-
-For CI/CD pipelines, use the automation script:
-
-```javascript
-// automate-config.js
-node automate-config.js
+```bash
+# Auto-detect structure and setup versioning
+npx mintlifier versioning
 ```
 
-This generates a complete docs.json configuration without user interaction, perfect for automated deployments.
+Supports these structures:
+- Root-level docs.json
+- docs/ subdirectory 
+- content/ subdirectory
+- Monorepo packages/docs
 
-## Navigation Structure Example
+### From Other Platforms
 
-The new docs.json supports a unified navigation structure:
+**GitBook:**
+1. Export as Markdown from GitBook
+2. Extract files
+3. Run conversion:
+```bash
+npx mintlifier migrate --from gitbook --input ./exported-files
+```
+
+**Notion:**
+1. Export workspace as Markdown & CSV
+2. Extract files
+3. Convert:
+```bash
+npx mintlifier migrate --from notion --input ./exported-files
+```
+
+**Docusaurus/VuePress:**
+```bash
+npx mintlifier migrate --from docusaurus
+npx mintlifier migrate --from vuepress
+```
+
+## API Documentation
+
+Configure OpenAPI integration:
 
 ```json
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Your Documentation",
-  "theme": "mint",
-  "colors": {
-    "primary": "#0D9373",
-    "light": "#07C983",
-    "dark": "#0D9373"
-  },
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Documentation",
-        "groups": [
-          {
-            "group": "Getting Started",
-            "pages": ["overview", "installation", "quickstart"]
-          },
-          {
-            "group": "Features",
-            "pages": ["configuration", "versioning"]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "pages": ["endpoints/users", "endpoints/posts"]
-      }
-    ],
-    "versions": [
-      {
-        "version": "v2.0",
-        "default": true,
-        "tabs": [...]
-      },
-      {
-        "version": "v1.0",
-        "tabs": [...]
-      }
-    ]
+  "openapi": "/openapi.json",
+  "api": {
+    "baseUrl": "https://api.example.com",
+    "auth": {
+      "method": "bearer"
+    },
+    "playground": {
+      "mode": "show"
+    }
   }
 }
 ```
 
-## Documentation
+## Automation
 
-- **[docs-json-schema.json](./docs-json-schema.json)** - Complete JSON Schema for validation
-- **[docs-json-schema.d.ts](./docs-json-schema.d.ts)** - TypeScript type definitions
-- **[DOCS-JSON-SCHEMA.md](./DOCS-JSON-SCHEMA.md)** - Comprehensive schema documentation
+### GitHub Actions
 
-## Migration from mint.json
+Enable automated versioning:
 
-Mintlify provides a built-in migration tool for converting mint.json to docs.json:
+```yaml
+name: Freeze Documentation Version
+on:
+  release:
+    types: [published]
+jobs:
+  freeze-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Freeze version
+        run: |
+          npx mintlifier freeze \
+            --version ${{ github.event.release.tag_name }} \
+            --next-version "v${{ steps.next.outputs.version }}" \
+            --automated
+```
 
-1. Run `npx mint@latest migrate` (Mintlify's official migration tool)
-2. After migration, use Mintlifier's edit mode to further customize your configuration:
-   ```bash
-   npx mintlifier --edit docs.json
-   ```
-3. Test your migrated documentation with `npx mint@latest dev`
+### CI/CD Integration
 
-Note: Mintlifier focuses on creating and editing docs.json files, not converting from mint.json. Use Mintlify's official migration tool for conversion.
+```bash
+# Generate config automatically
+npx mintlifier auto --name "API Docs" --output docs
 
-## Next Steps
+# Deploy
+cd docs
+npx mint@latest deploy
+```
 
-After running Mintlifier:
+## Troubleshooting
 
-1. Navigate to the generated `mintlify-docs` directory
-2. Run locally: `npx mint@latest dev`
-3. Make edits to your MDX files
-4. Deploy: `npx mint@latest deploy`
+**Invalid Version Format:**
+Use semantic versioning: `v1.0.0`, `v1.1.0`, `v2.0.0`
 
-## Contributing
+**Navigation Broken:**
+Use relative paths: `/guide` not `../guide.md`
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+**Version Already Exists:**
+Frozen versions are immutable. Use different version number.
 
-## License
+**Missing Files:**
+Ensure all documentation files are committed before freezing.
 
-MIT
+## Examples
+
+### Basic Setup
+```bash
+npx mintlifier init
+# Follow prompts
+# Result: Complete Mintlify project ready for development
+```
+
+### API Documentation
+```bash
+npx mintlifier auto --name "API Docs"
+# Result: Enterprise-grade API documentation with OpenAPI integration
+```
+
+### Version Management
+```bash
+npx mintlifier versioning
+# Setup versioning system
+npx mintlifier freeze
+# Freeze current version when ready to release
+```
+
+## Requirements
+
+- Node.js ≥ 18.0.0
+- npm or yarn
+
+## Links
+
+- **Repository:** https://github.com/Cordtus/mintlifier
+- **Issues:** https://github.com/Cordtus/mintlifier/issues
+- **Mintlify:** https://mintlify.com/docs
