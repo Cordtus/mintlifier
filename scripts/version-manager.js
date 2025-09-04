@@ -32,9 +32,15 @@ function versionCompare(a, b) {
 
 // Main function to freeze version
 export async function freezeVersion(options = {}) {
-  console.log(chalk.blue('\n===================================='));
-  console.log(chalk.blue('   Documentation Version Manager'));
-  console.log(chalk.blue('====================================\n'));
+  const isAutomated = options.automated || process.env.CI === 'true' || process.env.AUTOMATED === 'true';
+  
+  if (isAutomated) {
+    console.log(chalk.cyan('🤖 Automated Version Freeze'));
+  } else {
+    console.log(chalk.blue('\n===================================='));
+    console.log(chalk.blue('   Documentation Version Manager'));
+    console.log(chalk.blue('====================================\n'));
+  }
 
   // Look for docs.json in project root first, then in docs directory
   const projectRoot = process.cwd();
@@ -88,9 +94,9 @@ export async function freezeVersion(options = {}) {
   }
 
   // Get current version to freeze
-  let currentVersion = versionsData.currentVersion;
+  let currentVersion = options.currentVersion || process.env.CURRENT_VERSION || versionsData.currentVersion;
   
-  if (!currentVersion) {
+  if (!currentVersion && !isAutomated) {
     console.log(chalk.yellow('ℹ This appears to be the first version freeze'));
     currentVersion = await input({
       message: 'Enter the version to freeze (e.g., v1.0.0):',
@@ -101,7 +107,10 @@ export async function freezeVersion(options = {}) {
         return true;
       }
     });
-  } else {
+  } else if (!currentVersion && isAutomated) {
+    console.error(chalk.red('✗ CURRENT_VERSION environment variable or options.currentVersion required for automation'));
+    process.exit(1);
+  } else if (!isAutomated) {
     console.log(chalk.green(`ℹ Current development version: ${currentVersion}`));
   }
 
@@ -119,40 +128,51 @@ export async function freezeVersion(options = {}) {
   }
 
   // Get new development version
-  const newVersion = await input({
-    message: 'Enter the new development version (e.g., v1.1.0):',
-    validate: (value) => {
-      if (!/^v?\d+\.\d+\.\d+/.test(value)) {
-        return 'Please use semantic versioning (e.g., v1.1.0)';
+  let newVersion = options.newVersion || process.env.NEW_VERSION;
+  
+  if (!newVersion && !isAutomated) {
+    newVersion = await input({
+      message: 'Enter the new development version (e.g., v1.1.0):',
+      validate: (value) => {
+        if (!/^v?\d+\.\d+\.\d+/.test(value)) {
+          return 'Please use semantic versioning (e.g., v1.1.0)';
+        }
+        return true;
       }
-      return true;
-    }
-  });
+    });
+  } else if (!newVersion && isAutomated) {
+    console.error(chalk.red('✗ NEW_VERSION environment variable or options.newVersion required for automation'));
+    process.exit(1);
+  }
 
   // Ensure new version has 'v' prefix
   const newVersionFinal = newVersion.startsWith('v') ? newVersion : 'v' + newVersion;
 
-  // Display summary
-  console.log(chalk.cyan('\n===================================='));
-  console.log(chalk.cyan('   Version Management Summary'));
-  console.log(chalk.cyan('====================================\n'));
-  console.log(`  Freeze version:  ${chalk.yellow(currentVersion)} (creates snapshot)`);
-  console.log(`  New dev version: ${chalk.green(newVersionFinal)} (for future development)`);
-  console.log(`  Working version: ${chalk.blue(versionsData.workingVersion || 'next')}\n`);
-  console.log('This will:');
-  console.log(`  1. Create frozen copy at docs/${currentVersion}/`);
-  console.log('  2. Update internal document links');
-  console.log('  3. Update docs.json navigation');
-  console.log('  4. Update versions.json registry\n');
+  // Display summary and confirm (skip in automated mode)
+  if (!isAutomated) {
+    console.log(chalk.cyan('\n===================================='));
+    console.log(chalk.cyan('   Version Management Summary'));
+    console.log(chalk.cyan('====================================\n'));
+    console.log(`  Freeze version:  ${chalk.yellow(currentVersion)} (creates snapshot)`);
+    console.log(`  New dev version: ${chalk.green(newVersionFinal)} (for future development)`);
+    console.log(`  Working version: ${chalk.blue(versionsData.workingVersion || 'next')}\n`);
+    console.log('This will:');
+    console.log(`  1. Create frozen copy at docs/${currentVersion}/`);
+    console.log('  2. Update internal document links');
+    console.log('  3. Update docs.json navigation');
+    console.log('  4. Update versions.json registry\n');
 
-  const proceed = await confirm({
-    message: 'Proceed with version freeze?',
-    default: true
-  });
+    const proceed = await confirm({
+      message: 'Proceed with version freeze?',
+      default: true
+    });
 
-  if (!proceed) {
-    console.log(chalk.yellow('Operation cancelled'));
-    return;
+    if (!proceed) {
+      console.log(chalk.yellow('Operation cancelled'));
+      return;
+    }
+  } else {
+    console.log(chalk.blue(`📋 Freezing ${currentVersion} → Starting ${newVersionFinal}`));
   }
 
   // Execute freeze
@@ -241,6 +261,24 @@ export async function freezeVersion(options = {}) {
   
   await fs.writeJson(versionsJsonPath, versionsData, { spaces: 2 });
   console.log(chalk.green('✓ Updated versions.json'));
+
+  // Create version metadata files
+  const frozenMarkerPath = path.join(versionDir, '.version-frozen');
+  const metadataPath = path.join(versionDir, '.version-metadata.json');
+  
+  await fs.writeFile(frozenMarkerPath, `${currentVersion} - Frozen on ${new Date().toISOString().split('T')[0]}`);
+  
+  const metadata = {
+    version: currentVersion,
+    frozenDate: new Date().toISOString().split('T')[0],
+    frozenTimestamp: new Date().toISOString(),
+    nextVersion: newVersionFinal,
+    automated: isAutomated,
+    frozenBy: process.env.USER || process.env.USERNAME || 'unknown'
+  };
+  
+  await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+  console.log(chalk.green('✓ Created version metadata'));
 
   // Update docs.json navigation
   const workingVersionNav = docsConfig.navigation.versions.find(v => 
@@ -384,16 +422,8 @@ export async function freezeVersion(options = {}) {
   await fs.writeJson(docsJsonPath, docsConfig, { spaces: 2 });
   console.log(chalk.green('✓ Updated docs.json navigation'));
 
-  // Create version metadata
-  const metadataPath = path.join(versionDir, '.version-metadata.json');
-  await fs.writeJson(metadataPath, {
-    version: currentVersion,
-    frozenDate: new Date().toISOString().split('T')[0],
-    frozenTimestamp: new Date().toISOString(),
-    nextVersion: newVersionFinal,
-    nodeVersion: process.version
-  }, { spaces: 2 });
-  console.log(chalk.green('✓ Created version metadata'));
+  // Metadata was already created earlier
+  console.log(chalk.green('✓ Version metadata already created'));
 
   // Success message
   console.log(chalk.green('\n✅ Version freeze completed successfully!\n'));
