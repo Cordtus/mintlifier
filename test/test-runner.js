@@ -157,17 +157,26 @@ class TestRunner {
 
   validateOutput(testPath, config) {
     const validations = [];
-    const outputDir = path.join(testPath, 'docs');
-
-    // Check docs.json exists
+    
+    // Check docs.json exists - could be at root or in docs directory
+    const docsJsonPaths = [
+      path.join(testPath, 'docs.json'),
+      path.join(testPath, 'docs', 'docs.json')
+    ];
+    
+    const docsJsonPath = docsJsonPaths.find(p => fs.existsSync(p));
     validations.push({
       test: 'docs.json exists',
-      passed: fs.existsSync(path.join(outputDir, 'docs.json'))
+      passed: !!docsJsonPath
     });
 
     // Validate docs.json structure
     try {
-      const docsConfig = fs.readJsonSync(path.join(outputDir, 'docs.json'));
+      if (!docsJsonPath) {
+        throw new Error('docs.json not found');
+      }
+      
+      const docsConfig = fs.readJsonSync(docsJsonPath);
       
       validations.push({
         test: 'docs.json has name',
@@ -193,7 +202,8 @@ class TestRunner {
         });
       }
 
-      // Check MDX files
+      // Check MDX files - look in the right place based on project structure
+      const outputDir = path.dirname(docsJsonPath);
       const mdxFiles = this.findFiles(outputDir, '.mdx');
       validations.push({
         test: 'MDX files created',
