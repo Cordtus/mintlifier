@@ -30,13 +30,15 @@ if (!command || command === 'help' || command === '--help' || command === '-h') 
   console.log(chalk.green('  edit') + '           Edit an existing docs.json configuration');
   console.log(chalk.green('  auto') + '           Generate configuration automatically (non-interactive)');
   console.log(chalk.green('  freeze') + '         Freeze current version and start new development version');
+  console.log(chalk.green('  workflows') + '      Generate GitHub Actions automation workflows');
   console.log(chalk.green('  help') + '           Show this help message\n');
   
   console.log(chalk.yellow('Examples:'));
   console.log('  npx mintlifier init              # Start interactive configuration');
   console.log('  npx mintlifier versioning         # Set up versioning system');
-  console.log('  npx mintlifier edit docs.json     # Edit existing configuration');
-  console.log('  npx mintlifier freeze             # Freeze documentation version\n');
+  console.log('  npx mintlifier freeze             # Freeze documentation version');
+  console.log('  npx mintlifier workflows          # Generate automation workflows');
+  console.log('  npx mintlifier freeze --automated # Automated freeze (CI mode)\n');
   
   console.log(chalk.gray('For more information: https://github.com/Cordtus/mintlifier'));
   process.exit(0);
@@ -89,6 +91,15 @@ switch (command) {
     // Freeze current version
     const { default: runFreeze } = await import('../lib/commands/freeze.js');
     await runFreeze(args.slice(1));
+    break;
+    
+  case 'workflows':
+  case 'workflow':
+  case 'ci':
+  case 'actions':
+    // Generate automation workflows
+    const { default: runGenerateWorkflows } = await import('../lib/commands/generate-workflows.js');
+    await runGenerateWorkflows(args.slice(1));
     break;
     
   default:
