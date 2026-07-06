@@ -7,8 +7,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import ora from 'ora';
 import os from 'os';
-import { setupVersioning } from './lib/versioning.js';
 import { editExistingConfig } from './lib/config-editor.js';
+import {
+  CURRENT_CONTEXTUAL_OPTIONS,
+  CURRENT_ICON_LIBRARIES,
+  CURRENT_MINTLIFY_THEMES,
+  normalizeDocsConfig
+} from './lib/current-mintlify.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,49 +50,24 @@ async function buildDocsConfig() {
     validate: (value) => value.trim() ? true : 'Name is required'
   });
 
-  // Required: Favicon
+  // Optional: Favicon
   const faviconInput = await input({
-    message: 'Path to favicon file (.svg or .png):',
-    default: '/favicon.svg',
-    validate: (value) => value.trim() ? true : 'Favicon path is required'
+    message: 'Path to favicon file (.svg or .png, optional):',
+    default: '/favicon.svg'
   });
-  config.favicon = makeRelativePath(faviconInput);
-  config._originalFavicon = faviconInput; // Store original for copying
+  if (faviconInput.trim()) {
+    config.favicon = makeRelativePath(faviconInput);
+    config._originalFavicon = faviconInput; // Store original for copying
+  }
 
   // Theme selection
   config.theme = await select({
     message: 'Select documentation theme:',
-    choices: [
-      { name: 'Mint (Default)', value: 'mint' },
-      { name: 'Maple', value: 'maple' },
-      { name: 'Palm', value: 'palm' },
-      { name: 'Willow', value: 'willow' },
-      { name: 'Linden', value: 'linden' },
-      { name: 'Almond', value: 'almond' },
-      { name: 'Aspen', value: 'aspen' }
-    ],
+    choices: CURRENT_MINTLIFY_THEMES.map((theme) => ({
+      name: theme === 'mint' ? 'Mint (Default)' : theme[0].toUpperCase() + theme.slice(1),
+      value: theme
+    })),
     default: 'mint'
-  });
-
-  // Layout selection
-  config.layout = await select({
-    message: 'Select layout style:',
-    choices: [
-      { name: 'Top Navigation', value: 'topnav' },
-      { name: 'Side Navigation', value: 'sidenav' },
-      { name: 'Solid Side Navigation', value: 'solidSidenav' }
-    ],
-    default: 'sidenav'
-  });
-
-  // Corner style
-  config.rounded = await select({
-    message: 'Select corner style:',
-    choices: [
-      { name: 'Default (Rounded)', value: 'default' },
-      { name: 'Sharp', value: 'sharp' }
-    ],
-    default: 'default'
   });
 
   // Colors configuration
@@ -124,7 +104,8 @@ async function buildDocsConfig() {
     });
 
     if (useBackgroundColors) {
-      config.colors.background = {
+      config.background = config.background || {};
+      config.background.color = {
         light: await input({
           message: 'Light mode background (hex):',
           default: '#FFFFFF',
@@ -138,24 +119,22 @@ async function buildDocsConfig() {
       };
     }
 
-    const useGradientAnchors = await confirm({
-      message: 'Use gradient for anchor links?',
+    const useBackgroundDecoration = await confirm({
+      message: 'Configure a background decoration?',
       default: false
     });
 
-    if (useGradientAnchors) {
-      config.colors.anchors = {
-        from: await input({
-          message: 'Gradient from color (hex):',
-          default: '#0D9373',
-          validate: (value) => /^#[0-9A-F]{6}$/i.test(value) ? true : 'Please enter a valid hex color'
-        }),
-        to: await input({
-          message: 'Gradient to color (hex):',
-          default: '#07C983',
-          validate: (value) => /^#[0-9A-F]{6}$/i.test(value) ? true : 'Please enter a valid hex color'
-        })
-      };
+    if (useBackgroundDecoration) {
+      config.background = config.background || {};
+      config.background.decoration = await select({
+        message: 'Background decoration:',
+        choices: [
+          { name: 'Gradient', value: 'gradient' },
+          { name: 'Grid', value: 'grid' },
+          { name: 'Windows', value: 'windows' }
+        ],
+        default: 'gradient'
+      });
     }
   }
 
@@ -217,13 +196,14 @@ async function buildDocsConfig() {
     // Icon library
     const iconLibrary = await select({
       message: 'Select icon library:',
-      choices: [
-        { name: 'Lucide (recommended)', value: 'lucide' },
-        { name: 'Heroicons', value: 'heroicons' },
-        { name: 'Font Awesome', value: 'fontawesome' },
-        { name: 'Tabler', value: 'tabler' },
-        { name: 'Phosphor', value: 'phosphor' }
-      ],
+      choices: CURRENT_ICON_LIBRARIES.map((library) => ({
+        name: library === 'lucide'
+          ? 'Lucide (recommended)'
+          : library === 'fontawesome'
+            ? 'Font Awesome'
+            : 'Tabler',
+        value: library
+      })),
       default: 'lucide'
     });
 
@@ -234,7 +214,6 @@ async function buildDocsConfig() {
       message: 'Code block color scheme:',
       choices: [
         { name: 'System (follows theme)', value: 'system' },
-        { name: 'Light', value: 'light' },
         { name: 'Dark', value: 'dark' }
       ],
       default: 'system'
@@ -251,15 +230,11 @@ async function buildDocsConfig() {
     if (addContextual) {
       const contextualOptions = await checkbox({
         message: 'Select contextual menu options:',
-        choices: [
-          { name: 'Copy', value: 'copy', checked: true },
-          { name: 'View Source', value: 'view', checked: true },
-          { name: 'ChatGPT', value: 'chatgpt' },
-          { name: 'Perplexity', value: 'perplexity' },
-          { name: 'MCP', value: 'mcp' },
-          { name: 'Cursor', value: 'cursor' },
-          { name: 'VS Code', value: 'vscode' }
-        ]
+        choices: CURRENT_CONTEXTUAL_OPTIONS.map((option) => ({
+          name: option.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
+          value: option,
+          checked: ['copy', 'view', 'assistant'].includes(option)
+        }))
       });
 
       if (contextualOptions.length > 0) {
@@ -403,6 +378,8 @@ async function buildDocsConfig() {
   });
 
   if (hasOpenAPI) {
+    config.api = config.api || {};
+
     const openAPICount = await number({
       message: 'How many OpenAPI spec files?',
       default: 1,
@@ -410,32 +387,30 @@ async function buildDocsConfig() {
     });
 
     if (openAPICount === 1) {
-      config.openapi = await input({
+      config.api.openapi = await input({
         message: 'Path to OpenAPI spec file:',
         default: '/openapi.json'
       });
     } else {
-      config.openapi = [];
+      config.api.openapi = [];
       for (let i = 0; i < openAPICount; i++) {
-        const path = await input({
+        const specPath = await input({
           message: `OpenAPI spec file ${i + 1} path:`,
           default: `/openapi-${i + 1}.json`
         });
-        config.openapi.push(path);
+        config.api.openapi.push(specPath);
       }
     }
 
-    // API configuration
-    config.api = {};
-
     const hasBaseUrl = await confirm({
-      message: 'Configure API base URL?',
-      default: true
+      message: 'Configure a base URL for MDX-authored API pages?',
+      default: false
     });
 
     if (hasBaseUrl) {
-      config.api.baseUrl = await input({
-        message: 'API base URL:',
+      config.api.mdx = config.api.mdx || {};
+      config.api.mdx.server = await input({
+        message: 'MDX API server URL:',
         default: 'https://api.yoursite.com'
       });
     }
@@ -451,18 +426,20 @@ async function buildDocsConfig() {
     });
 
     if (authMethod) {
-      config.api.auth = { method: authMethod };
+      config.api.mdx = config.api.mdx || {};
+      config.api.mdx.auth = { method: authMethod };
     }
 
     config.api.playground = {
-      mode: await select({
-        message: 'API playground mode:',
+      display: await select({
+        message: 'API playground display:',
         choices: [
-          { name: 'Show (Interactive)', value: 'show' },
+          { name: 'Interactive', value: 'interactive' },
           { name: 'Simple', value: 'simple' },
-          { name: 'Hide', value: 'hide' }
+          { name: 'None', value: 'none' },
+          { name: 'Authenticated users only', value: 'auth' }
         ],
-        default: 'show'
+        default: 'interactive'
       })
     };
   }
@@ -507,9 +484,9 @@ async function buildDocsConfig() {
     }
   }
 
-  // Analytics
+  // Integrations
   const configureAnalytics = await confirm({
-    message: 'Configure analytics?',
+    message: 'Configure analytics integrations?',
     default: false
   });
 
@@ -527,11 +504,11 @@ async function buildDocsConfig() {
     });
 
     if (analyticsProvider) {
-      config.analytics = {};
+      config.integrations = config.integrations || {};
 
       switch (analyticsProvider) {
         case 'ga4':
-          config.analytics.ga4 = {
+          config.integrations.ga4 = {
             measurementId: await input({
               message: 'GA4 Measurement ID (G-XXXXXXXXXX):',
               validate: (value) => value.startsWith('G-') ? true : 'Must start with G-'
@@ -539,7 +516,7 @@ async function buildDocsConfig() {
           };
           break;
         case 'posthog':
-          config.analytics.posthog = {
+          config.integrations.posthog = {
             apiKey: await input({
               message: 'PostHog API Key (phc_...):',
               validate: (value) => value.startsWith('phc_') ? true : 'Must start with phc_'
@@ -547,7 +524,7 @@ async function buildDocsConfig() {
           };
           break;
         case 'mixpanel':
-          config.analytics.mixpanel = {
+          config.integrations.mixpanel = {
             projectToken: await input({
               message: 'Mixpanel Project Token:',
               validate: (value) => value.trim() ? true : 'Token is required'
@@ -555,7 +532,7 @@ async function buildDocsConfig() {
           };
           break;
         case 'amplitude':
-          config.analytics.amplitude = {
+          config.integrations.amplitude = {
             apiKey: await input({
               message: 'Amplitude API Key:',
               validate: (value) => value.trim() ? true : 'API Key is required'
@@ -563,7 +540,7 @@ async function buildDocsConfig() {
           };
           break;
         case 'segment':
-          config.analytics.segment = {
+          config.integrations.segment = {
             key: await input({
               message: 'Segment Write Key:',
               validate: (value) => value.trim() ? true : 'Write Key is required'
@@ -577,27 +554,15 @@ async function buildDocsConfig() {
   // Features
   console.log(chalk.yellow('\n Feature Configuration'));
 
-  // Feedback
-  const configureFeedback = await confirm({
-    message: 'Enable feedback features?',
-    default: true
+  // Telemetry controls dashboard feedback availability in current Mintlify.
+  const disableTelemetry = await confirm({
+    message: 'Disable Mintlify telemetry and dashboard feedback?',
+    default: false
   });
 
-  if (configureFeedback) {
-    config.feedback = {
-      thumbsRating: await confirm({
-        message: 'Enable thumbs up/down rating?',
-        default: true
-      }),
-      suggestEdit: await confirm({
-        message: 'Enable "Suggest Edit" feature?',
-        default: true
-      }),
-      raiseIssue: await confirm({
-        message: 'Enable "Raise Issue" feature?',
-        default: false
-      })
-    };
+  if (disableTelemetry) {
+    config.integrations = config.integrations || {};
+    config.integrations.telemetry = { enabled: false };
   }
 
   // Search
@@ -611,36 +576,29 @@ async function buildDocsConfig() {
       prompt: await input({
         message: 'Custom search prompt:',
         default: 'Search documentation...'
-      }),
-      location: await select({
-        message: 'Search bar location:',
-        choices: [
-          { name: 'Side', value: 'side' },
-          { name: 'Top', value: 'top' }
-        ],
-        default: 'side'
       })
     };
   }
 
-  // Mode toggle
-  config.modeToggle = {
+  // Appearance
+  config.appearance = {
     default: await select({
       message: 'Default color mode:',
       choices: [
+        { name: 'System', value: 'system' },
         { name: 'Light', value: 'light' },
         { name: 'Dark', value: 'dark' }
       ],
-      default: 'light'
+      default: 'system'
     }),
-    isHidden: await confirm({
+    strict: await confirm({
       message: 'Hide mode toggle button?',
       default: false
     })
   };
 
 
-  return config;
+  return normalizeDocsConfig(config);
 }
 
 async function generateProjectStructure(config) {
@@ -655,7 +613,7 @@ async function generateProjectStructure(config) {
     await fs.ensureDir(docsDir);
 
     // Clean config for docs.json (remove internal fields)
-    const cleanConfig = { ...config };
+    const cleanConfig = normalizeDocsConfig(config);
     delete cleanConfig._originalFavicon;
     delete cleanConfig._originalLogo;
     delete cleanConfig._originalLogos;
@@ -792,8 +750,8 @@ Add your content here.
     }
 
     // Create OpenAPI spec placeholders
-    if (config.openapi) {
-      const specs = Array.isArray(config.openapi) ? config.openapi : [config.openapi];
+    if (cleanConfig.api?.openapi) {
+      const specs = Array.isArray(cleanConfig.api.openapi) ? cleanConfig.api.openapi : [cleanConfig.api.openapi];
       for (const spec of specs) {
         if (!spec.startsWith('http')) {
           const specPath = path.join(outputDir, spec.replace(/^\//, ''));
@@ -825,7 +783,8 @@ Add your content here.
 
     console.log(chalk.yellow('\n Next steps:'));
     console.log('  1. Run locally: npx mint@latest dev');
-    console.log('  2. Deploy: npx mint@latest deploy');
+    console.log('  2. Validate: npx mint@latest validate');
+    console.log('  3. Check links: npx mint@latest broken-links');
     console.log(chalk.blue('\n Documentation: https://mintlify.com/docs'));
 
   } catch (error) {
@@ -837,7 +796,7 @@ Add your content here.
 
 async function main() {
   console.log(chalk.cyan.bold('\n Mintlifier - Mintlify docs.json Configuration Builder\n'));
-  console.log(chalk.gray('Building for the latest Mintlify (2024-2025) with docs.json\n'));
+  console.log(chalk.gray('Building for the current Mintlify docs.json schema\n'));
 
   // Handle command-line arguments
   const args = process.argv.slice(2);

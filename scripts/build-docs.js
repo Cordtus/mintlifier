@@ -246,7 +246,7 @@ Mintlifier helps you:
 
 Creating a Mintlify documentation site involves many configuration options and setup steps. Mintlifier streamlines this process by:
 
-1. **Eliminating manual configuration** - No need to manually write \`mint.json\`
+1. **Eliminating manual configuration** - No need to manually write \`docs.json\`
 2. **Preventing common mistakes** - Validates inputs and ensures proper structure
 3. **Saving time** - Generate a complete project in minutes
 4. **Adding automation** - Optional CI/CD workflows for versioning and updates
@@ -296,7 +296,7 @@ Mintlifier can be installed globally via npm or yarn, or run directly using npx.
 
 Before installing Mintlifier, ensure you have:
 
-- **Node.js** version 18.0.0 or higher
+- **Node.js** version 20.17.0 or higher
 - **npm** or **yarn** package manager
 - **Git** (for version control features)
 
@@ -345,7 +345,7 @@ mintlifier --version
 
 | Requirement | Minimum Version |
 |------------|----------------|
-| Node.js | 18.0.0 |
+| Node.js | 20.17.0 |
 | npm | 8.0.0 |
 | yarn | 1.22.0 |
 | Git | 2.0.0 |
@@ -383,12 +383,12 @@ If you have an older Node.js version:
 
 \`\`\`bash
 # Using nvm
-nvm install 18
-nvm use 18
+nvm install 20
+nvm use 20
 
 # Using fnm
-fnm install 18
-fnm use 18
+fnm install 20
+fnm use 20
 \`\`\`
 
 ## Next Steps
@@ -527,9 +527,11 @@ Set up automated versioning:
 \`\`\`
 
 ### Deploy Your Docs
-Deploy to Mintlify's hosting:
+Commit and push changes to your Mintlify-connected repository:
 \`\`\`bash
-mintlify deploy
+git add .
+git commit -m "Update documentation"
+git push
 \`\`\`
 
 ## Example Output Structure
@@ -545,9 +547,9 @@ docs/
 ├── images/            # Assets directory
 ├── favicon.svg        # Favicon file
 ├── logo.svg          # Logo file
-└── scripts/          # Versioning scripts (optional)
+    └── scripts/          # Versioning scripts (optional)
     ├── freeze-version.js
-    └── sync-changelog.sh
+    └── refresh-changelog.sh
 \`\`\`
 
 ## Tips for Success
@@ -923,9 +925,9 @@ You'll be prompted for:
 Update release notes from source repository:
 
 \`\`\`bash
-./scripts/sync-changelog.sh
+./scripts/refresh-changelog.sh owner/repo latest
 # or fetch specific version
-./scripts/sync-changelog.sh v1.2.0
+./scripts/refresh-changelog.sh owner/repo v1.2.0
 \`\`\`
 
 ## GitHub Actions Integration
@@ -1119,7 +1121,7 @@ Automatically freezes versions and manages documentation lifecycle.
 - Freezes current version
 - Updates to new development version
 - Syncs changelog
-- Updates mint.json
+- Updates docs.json
 
 ## Setup Instructions
 
@@ -1225,20 +1227,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Mintlify
-        run: npm i -g mintlify
-      
-      - name: Deploy to Mintlify
+      - name: Validate Mintlify docs
         run: |
           cd mintlify-docs
-          mintlify deploy
-        env:
-          MINTLIFY_TOKEN: \${{ secrets.MINTLIFY_TOKEN }}
+          npx mint@latest validate
+          npx mint@latest broken-links
+      
+      - name: Deployment note
+        run: |
+          echo "Mintlify deploys from the connected Git branch after this workflow passes."
 \`\`\`
 
 ### Validate Configuration
 
-Check mint.json on pull requests:
+Check docs.json on pull requests:
 
 \`\`\`yaml
 name: Validate Docs
@@ -1254,10 +1256,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Validate mint.json
+      - name: Validate docs.json
         run: |
           cd mintlify-docs
-          npx mintlify validate
+          npx mint@latest validate
 \`\`\`
 
 ## Best Practices
@@ -1329,7 +1331,7 @@ async function main() {
     console.log(chalk.cyan('\n Documentation build complete!'));
     console.log(chalk.yellow('\nNext steps:'));
     console.log('  1. cd docs');
-    console.log('  2. npm install -g mintlify');
+    console.log('  2. npm install -g mint@latest');
     console.log('  3. mint dev');
     console.log('\nYour documentation will be available at http://localhost:3000');
     

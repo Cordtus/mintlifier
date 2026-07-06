@@ -12,6 +12,9 @@ on:
         description: 'Source version/tag to sync (leave empty for latest)'
         required: false
         default: 'latest'
+      source_repo:
+        description: 'Source repository containing the changelog (owner/repo)'
+        required: false
       
   # External repository trigger
   repository_dispatch:
@@ -19,6 +22,9 @@ on:
     # Payload should include:
     # - source_version: version/tag to sync (optional)
     # - source_repo: owner/repo (optional, uses default if not provided)
+
+env:
+  CHANGELOG_SOURCE_REPO: ${{ vars.CHANGELOG_SOURCE_REPO }}
 
 permissions:
   contents: write
@@ -37,30 +43,44 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Determine source version
+      - name: Determine source
         id: version
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             VERSION="${{ github.event.client_payload.source_version || 'latest' }}"
+            SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
           else
             VERSION="${{ github.event.inputs.source_version || 'latest' }}"
+            SOURCE_REPO="${{ github.event.inputs.source_repo }}"
           fi
+
+          if [ -z "$SOURCE_REPO" ]; then
+            SOURCE_REPO="${CHANGELOG_SOURCE_REPO:-}"
+          fi
+
+          if [ -z "$SOURCE_REPO" ]; then
+            echo "Error: source_repo is required, or set repository variable CHANGELOG_SOURCE_REPO"
+            exit 1
+          fi
+
           echo "source_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "source_repo=$SOURCE_REPO" >> $GITHUB_OUTPUT
 
       - name: Sync changelog
         id: sync
         run: |
-          # Run the sync script
-          ./scripts/sync-changelog.sh "${{ steps.version.outputs.source_version }}"
+          ./scripts/refresh-changelog.sh \
+            "${{ steps.version.outputs.source_repo }}" \
+            "${{ steps.version.outputs.source_version }}"
           
           # Check if there are changes
-          if [ -n "$(git status --porcelain changelog/)" ]; then
+          if [ -n "$(git status --porcelain docs/changelog/)" ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
             
             # Count versions in changelog
-            VERSION_COUNT=$(grep -c '<Update' changelog/release-notes.mdx || echo "0")
+            VERSION_COUNT=$(grep -c '<Update' docs/changelog/release-notes.mdx || echo "0")
             echo "version_count=$VERSION_COUNT" >> $GITHUB_OUTPUT
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -79,10 +99,11 @@ jobs:
             This PR updates the release notes from source version: **${{ steps.version.outputs.source_version }}**
             
             ### Changes
-            - Updated `changelog/release-notes.mdx`
+            - Updated `docs/changelog/release-notes.mdx`
             - Synced **${{ steps.sync.outputs.version_count }}** versions
             
             ### Source
+            - Repository: `${{ steps.version.outputs.source_repo }}`
             - Version/Tag: `${{ steps.version.outputs.source_version }}`
             - Triggered by: ${{ github.event_name }}
             
@@ -111,6 +132,7 @@ jobs:
           if [[ "${{ steps.sync.outputs.has_changes }}" == "true" ]]; then
             echo " **Successfully synced changelog**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Repository: \`${{ steps.version.outputs.source_repo }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- Source: \`${{ steps.version.outputs.source_version }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- Versions synced: ${{ steps.sync.outputs.version_count }}" >> $GITHUB_STEP_SUMMARY
             echo "- Pull Request created for review" >> $GITHUB_STEP_SUMMARY

@@ -28,14 +28,23 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
-# Get repository and source from command line arguments
-REPO="${1}"
-SOURCE="${2:-latest}"
+# Get repository and source from command line arguments. For compatibility with
+# older one-argument examples, allow the repository to come from an environment
+# variable and treat the first argument as the source ref.
+if [[ "${1:-}" == */* ]]; then
+    REPO="${1}"
+    SOURCE="${2:-latest}"
+else
+    REPO="${CHANGELOG_SOURCE_REPO:-${CHANGELOG_REPO:-}}"
+    SOURCE="${1:-latest}"
+fi
 
 if [ -z "$REPO" ]; then
     print_error "Repository not specified"
     echo "Usage: $0 <owner/repo> [version|branch|latest]"
+    echo "   or: CHANGELOG_SOURCE_REPO=<owner/repo> $0 [version|branch|latest]"
     echo "Example: $0 cosmos/evm latest"
+    echo "Example: CHANGELOG_SOURCE_REPO=cosmos/evm $0 v1.0.0"
     echo "Example: $0 myorg/myrepo v1.0.0"
     exit 1
 fi

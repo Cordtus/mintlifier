@@ -1,20 +1,20 @@
 # Mintlifier
 
-Interactive CLI for creating and managing Mintlify documentation with the latest docs.json schema, featuring advanced versioning and project structure management.
+Interactive CLI for creating and updating Mintlify `docs.json` projects with the current Mintlify schema.
 
 ## Features
 
-- **Interactive Configuration** - Step-by-step wizard for docs.json files
-- **Enhanced Versioning** - Production-grade documentation versioning system
-- **Migration Tools** - Convert from GitBook, Notion, Docusaurus, and other platforms
-- **Cross-Platform** - Works on Windows, macOS, and Linux
-- **Modern Schema** - Full support for 2024-2025 docs.json format
-- **External Integration** - GitHub changelog sync and automated workflows
+- Interactive `docs.json` generator
+- Non-interactive starter project generator
+- Current Mintlify theme, appearance, API, navigation, contextual menu, and integrations fields
+- Legacy config normalization for older `mint.json`/early `docs.json` fields
+- Versioning helpers for flat `navigation.versions` projects, with guards for product-scoped versioning
 
 ## Installation
 
+Mintlifier targets the current Mintlify CLI workflow, so use Node.js 20.17.0 or newer.
+
 ```bash
-# Use directly (recommended)
 npx mintlifier <command>
 
 # Or install globally
@@ -24,121 +24,72 @@ npm install -g mintlifier
 ## Commands
 
 ```bash
-npx mintlifier init              # Create new documentation
-npx mintlifier versioning       # Setup versioning system
-npx mintlifier edit [path]       # Edit existing docs.json
-npx mintlifier freeze            # Freeze current version
-npx mintlifier auto              # Generate automatically
+npx mintlifier init
+npx mintlifier auto --name "API Docs" --output docs-site
+npx mintlifier edit docs.json
+npx mintlifier versioning
+npx mintlifier freeze
+```
+
+`freeze` also accepts non-interactive flags for flat versioned sites:
+
+```bash
+npx mintlifier freeze --version v1.0.0 --next-version v1.1.0 --automated
 ```
 
 ## Quick Start
 
-### Create Documentation
-
 ```bash
+mkdir my-docs
+cd my-docs
 npx mintlifier init
-```
-
-Follow prompts to configure:
-- Name and branding
-- Theme (mint, maple, palm, willow, linden, almond, aspen)
-- Colors and styling  
-- Navigation structure
-- API documentation
-- Analytics and features
-
-### Generated Structure
-
-```
-docs/
-├── docs.json           # Configuration
-├── introduction.mdx    # Sample pages
-├── getting-started.mdx
-├── images/            # Assets
-└── snippets/          # Shared components
-```
-
-### Run Documentation
-
-```bash
-cd docs
 npx mint@latest dev
 ```
 
+Before publishing changes, run the Mintlify checks that matter for your project:
+
+```bash
+npx mint@latest validate
+npx mint@latest broken-links
+```
+
+## Generated Layout
+
+Mintlifier creates a root `docs.json` and content files under `docs/`:
+
+```text
+project/
+├── docs.json
+├── docs/
+│   ├── introduction.mdx
+│   └── getting-started.mdx
+├── assets/
+└── snippets/
+```
+
+The generator keeps discovery flexible when editing existing projects, but new projects use this layout consistently.
+
+## Current Schema Coverage
+
+Mintlifier generates current Mintlify fields such as:
+
+- `appearance.default` and `appearance.strict`
+- `background.color`, `background.decoration`, and `background.image`
+- `api.openapi`, `api.playground.display`, and `api.mdx`
+- `integrations.*`
+- `navbar.links` and `navbar.primary`
+- `navigation.pages`, `groups`, `tabs`, `versions`, `dropdowns`, and nested structures
+- `contextual.options`
+- `search.prompt`
+- `seo.metatags`
+- `redirects[].source` and `redirects[].destination`
+
+It intentionally no longer generates obsolete fields such as `layout`, `rounded`, `modeToggle`, top-level `openapi`, `analytics`, `feedback`, top-level `versions`, `topbarLinks`, or `topbarCtaButton`.
+
 ## Versioning
 
-Enable documentation versioning for release management:
+For a flat versioned Mintlify site, `navigation.versions` is supported:
 
-```bash
-npx mintlifier versioning
-```
-
-### Example Workflow
-
-**Initial Setup:**
-```bash
-npx mintlifier init              # Create docs
-npx mintlifier versioning       # Enable versioning
-```
-
-**Development Cycle:**
-```bash
-# Work on documentation in docs/next/ (working directory)
-# When ready to release v1.0.0:
-npx mintlifier freeze
-# Enter current version: v1.0.0
-# Enter next version: v1.1.0
-```
-
-**Result Structure:**
-```
-project/
-├── docs.json              # Version-aware navigation
-├── versions.json          # Version registry
-├── docs/
-│   ├── next/              # Active development (v1.1.0)
-│   │   ├── introduction.mdx
-│   │   └── getting-started.mdx
-│   └── v1.0.0/            # Frozen v1.0.0 docs
-│       ├── introduction.mdx
-│       └── getting-started.mdx
-├── snippets/              # Shared components
-└── images/                # Shared assets
-```
-
-### Benefits
-
-- **Historical Accuracy** - Frozen versions preserve exact documentation state
-- **Active Development** - Continue working on next version without affecting released docs
-- **External Changelog** - Automatically sync release notes from GitHub
-- **CI/CD Integration** - Automated version freezing on releases
-
-## Navigation Types
-
-**Simple Pages:**
-```json
-{
-  "navigation": {
-    "pages": ["intro", "guide", "api"]
-  }
-}
-```
-
-**Grouped:**
-```json
-{
-  "navigation": {
-    "groups": [
-      {
-        "group": "Getting Started",
-        "pages": ["intro", "setup"]
-      }
-    ]
-  }
-}
-```
-
-**Versioned (Recommended):**
 ```json
 {
   "navigation": {
@@ -146,203 +97,35 @@ project/
       {
         "version": "next",
         "default": true,
-        "tabs": [
-          {
-            "tab": "Documentation",
-            "groups": [
-              {
-                "group": "Getting Started", 
-                "pages": ["docs/next/intro", "docs/next/setup"]
-              }
-            ]
-          }
-        ]
+        "pages": ["next/introduction"]
       },
       {
         "version": "v1.0.0",
-        "tabs": [
-          {
-            "tab": "Documentation",
-            "groups": [
-              {
-                "group": "Getting Started",
-                "pages": ["docs/v1.0.0/intro", "docs/v1.0.0/setup"]
-              }
-            ]
-          }
-        ]
+        "pages": ["v1.0.0/introduction"]
       }
     ]
   }
 }
 ```
 
-## Configuration Options
+The freezer accepts path-safe labels such as `next`, `main`, `v1.0.0`, `v0.53`, and `v8.5.x`.
 
-### Themes
-- `mint` - Default modern
-- `maple` - Clean professional
-- `palm` - Vibrant tropical
-- `willow` - Soft elegant
-- `linden` - Nature inspired
-- `almond` - Warm inviting
-- `aspen` - Cool minimal
+Product-scoped or nested versioning, such as versions under `navigation.dropdowns[].versions`, is detected but not rewritten by the flat-site freezer. Use the project-specific workflow for those repos until the product-scoped adapter is implemented.
 
-### Analytics Providers
-- Google Analytics 4
-- PostHog
-- Mixpanel
-- Amplitude
-- Segment
-- Heap, Clearbit, Fathom, Hotjar, Koala, Plausible, LogRocket, Pirsch
+## Migration Note
 
-### Icon Libraries
-- Lucide (recommended)
-- Heroicons
-- Font Awesome
-- Tabler
-- Phosphor
+Mintlifier normalizes older Mintlify config fields when editing or saving, but it does not currently implement full GitBook, Notion, Docusaurus, or VuePress content migration commands.
 
-## Migration
-
-### From Existing Mintlify Project
+## Development
 
 ```bash
-# Auto-detect structure and setup versioning
-npx mintlifier versioning
+npm ci
+npm test
 ```
 
-Supports these structures:
-- Root-level docs.json
-- docs/ subdirectory 
-- content/ subdirectory
-- Monorepo packages/docs
+`npm test` runs deterministic Node tests for schema normalization and versioning detection.
 
-### From Other Platforms
+## References
 
-**GitBook:**
-1. Export as Markdown from GitBook
-2. Extract files
-3. Run conversion:
-```bash
-npx mintlifier migrate --from gitbook --input ./exported-files
-```
-
-**Notion:**
-1. Export workspace as Markdown & CSV
-2. Extract files
-3. Convert:
-```bash
-npx mintlifier migrate --from notion --input ./exported-files
-```
-
-**Docusaurus/VuePress:**
-```bash
-npx mintlifier migrate --from docusaurus
-npx mintlifier migrate --from vuepress
-```
-
-## API Documentation
-
-Configure OpenAPI integration:
-
-```json
-{
-  "openapi": "/openapi.json",
-  "api": {
-    "baseUrl": "https://api.example.com",
-    "auth": {
-      "method": "bearer"
-    },
-    "playground": {
-      "mode": "show"
-    }
-  }
-}
-```
-
-## Automation
-
-### GitHub Actions
-
-Enable automated versioning:
-
-```yaml
-name: Freeze Documentation Version
-on:
-  release:
-    types: [published]
-jobs:
-  freeze-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      - name: Freeze version
-        run: |
-          npx mintlifier freeze \
-            --version ${{ github.event.release.tag_name }} \
-            --next-version "v${{ steps.next.outputs.version }}" \
-            --automated
-```
-
-### CI/CD Integration
-
-```bash
-# Generate config automatically
-npx mintlifier auto --name "API Docs" --output docs
-
-# Deploy
-cd docs
-npx mint@latest deploy
-```
-
-## Troubleshooting
-
-**Invalid Version Format:**
-Use semantic versioning: `v1.0.0`, `v1.1.0`, `v2.0.0`
-
-**Navigation Broken:**
-Use relative paths: `/guide` not `../guide.md`
-
-**Version Already Exists:**
-Frozen versions are immutable. Use different version number.
-
-**Missing Files:**
-Ensure all documentation files are committed before freezing.
-
-## Examples
-
-### Basic Setup
-```bash
-npx mintlifier init
-# Follow prompts
-# Result: Complete Mintlify project ready for development
-```
-
-### API Documentation
-```bash
-npx mintlifier auto --name "API Docs"
-# Result: Enterprise-grade API documentation with OpenAPI integration
-```
-
-### Version Management
-```bash
-npx mintlifier versioning
-# Setup versioning system
-npx mintlifier freeze
-# Freeze current version when ready to release
-```
-
-## Requirements
-
-- Node.js ≥ 18.0.0
-- npm or yarn
-
-## Links
-
-- **Repository:** https://github.com/Cordtus/mintlifier
-- **Issues:** https://github.com/Cordtus/mintlifier/issues
-- **Mintlify:** https://mintlify.com/docs
+- Mintlify docs: https://www.mintlify.com/docs
+- Current schema: https://mintlify.com/docs.json

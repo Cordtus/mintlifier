@@ -1,335 +1,366 @@
 /**
- * Mintlify docs.json Configuration Types
- * Complete type definitions for Mintlify docs.json (2024-2025)
+ * Mintlify docs.json configuration types.
+ *
+ * Keep this file aligned with https://mintlify.com/docs.json. It intentionally
+ * omits older mint.json-era fields such as layout, rounded, analytics,
+ * feedback, modeToggle, top-level openapi, and top-level versions.
  */
 
+export type MintlifyTheme =
+  | 'mint'
+  | 'maple'
+  | 'palm'
+  | 'willow'
+  | 'linden'
+  | 'almond'
+  | 'aspen'
+  | 'sequoia'
+  | 'luma';
+
+export type IconLibrary = 'fontawesome' | 'lucide' | 'tabler';
+
+export type AppearanceMode = 'system' | 'light' | 'dark';
+
+export type CodeblockStyle = 'system' | 'dark' | string | {
+  theme?: string | {
+    light: string;
+    dark: string;
+  };
+  languages?: {
+    custom?: string[];
+  };
+};
+
+export type ContextualOption =
+  | 'assistant'
+  | 'copy'
+  | 'view'
+  | 'download-pdf'
+  | 'download-spec'
+  | 'chatgpt'
+  | 'claude'
+  | 'perplexity'
+  | 'grok'
+  | 'aistudio'
+  | 'devin'
+  | 'windsurf'
+  | 'mcp'
+  | 'add-mcp'
+  | 'cursor'
+  | 'vscode'
+  | 'devin-mcp'
+  | {
+      title: string;
+      description: string;
+      icon?: string;
+      href: string | {
+        base: string;
+        query?: Array<{ key: string; value: string }>;
+      };
+    };
+
 export interface DocsConfig {
-  /** Schema reference for validation and autocomplete */
   $schema?: string;
-  
-  /** Name of your documentation site */
+  theme: MintlifyTheme;
   name: string;
-  
-  /** Description of your documentation site */
-  description?: string;
-  
-  /** Visual theme preset */
-  theme: 'mint' | 'maple' | 'palm' | 'willow' | 'linden' | 'almond' | 'aspen';
-  
-  /** Color configuration */
   colors: {
-    /** Primary color (hex) */
     primary: string;
-    /** Light mode variant color (hex) */
-    light?: string;
-    /** Dark mode variant color (hex) */
-    dark?: string;
-  };
-  
-  /** Icon library configuration */
-  icons?: {
-    /** Icon library to use */
-    library?: 'lucide' | 'heroicons' | 'fontawesome' | 'tabler' | 'phosphor';
-  };
-  
-  /** Styling configuration */
-  styling?: {
-    /** Code block color scheme */
-    codeblocks?: 'system' | 'light' | 'dark';
-  };
-  
-  /** Favicon configuration */
-  favicon?: string | {
     light?: string;
     dark?: string;
   };
-  
-  /** Logo configuration */
-  logo?: string | {
-    light?: string;
-    dark?: string;
-    href?: string;
-  };
-  
-  /** Contextual menu configuration */
-  contextual?: {
-    options?: Array<'copy' | 'view' | 'chatgpt' | 'claude' | 'perplexity' | 'mcp' | 'cursor' | 'vscode'>;
-  };
-  
-  /** Navigation structure */
   navigation: Navigation;
-  
-  /** Legacy tabs configuration (deprecated, use navigation.tabs) */
-  tabs?: Tab[];
-  
-  /** OpenAPI specification files */
-  openapi?: string | string[];
-  
-  /** API configuration */
-  api?: {
-    baseUrl?: string;
-    server?: string;
-    auth?: {
-      method?: 'bearer' | 'basic' | 'key' | 'none';
-    };
-    playground?: {
-      mode?: 'show' | 'simple' | 'hide';
-    };
-    proxy?: boolean;
+  public?: boolean;
+  description?: string;
+  logo?: ImageConfig & { href?: string };
+  favicon?: ImageConfig;
+  appearance?: {
+    default?: AppearanceMode;
+    strict?: boolean;
   };
-  
-  /** Footer configuration */
-  footer?: {
-    socials?: {
-      x?: string;
-      twitter?: string;
-      github?: string;
-      discord?: string;
-      slack?: string;
-      linkedin?: string;
-      youtube?: string;
-      facebook?: string;
-      instagram?: string;
-      website?: string;
-    };
+  fonts?: FontConfig | {
+    heading?: FontConfig;
+    body?: FontConfig;
   };
-  
-  /** Social media links (alternative location) */
-  footerSocials?: Record<string, string>;
-  
-  /** Analytics integrations */
-  analytics?: {
-    ga4?: { measurementId: string };
-    gtm?: { containerId: string };
-    posthog?: { apiKey: string };
-    mixpanel?: { projectToken: string };
-    amplitude?: { apiKey: string };
-    segment?: { key: string };
-    heap?: { appId: string };
-    clearbit?: { apiKey: string };
-    fathom?: { siteId: string };
-    hotjar?: { id: string; scriptVersion?: string };
-    koala?: { publicKey: string };
-    plausible?: { domain: string };
-    logrocket?: { appId: string };
-    pirsch?: { code: string };
+  icons?: {
+    library: IconLibrary;
   };
-  
-  /** Third-party integrations */
-  integrations?: Record<string, any>;
-  
-  /** Feedback widget configuration */
-  feedback?: {
-    thumbsRating?: boolean;
-    suggestEdit?: boolean;
-    raiseIssue?: boolean;
-  };
-  
-  /** Search configuration */
-  search?: {
-    prompt?: string;
-    placeholder?: string;
-    location?: 'side' | 'top';
-  };
-  
-  /** Dark/light mode toggle settings */
-  modeToggle?: {
-    default?: 'light' | 'dark';
-    isHidden?: boolean;
-  };
-  
-  /** Version switcher (deprecated, use navigation.versions) */
-  versions?: Array<string | { name: string; url: string }>;
-  
-  /** Links in the top navigation bar */
-  topbarLinks?: Array<{
-    name: string;
-    url: string;
-    type?: 'link' | 'github';
-  }>;
-  
-  /** Call-to-action button in top bar */
-  topbarCtaButton?: {
-    name: string;
-    url: string;
-    type?: 'link' | 'github';
-  };
-  
-  /** Custom font configuration */
-  font?: {
-    family?: string;
-    weight?: string | number;
-    url?: string;
-    format?: string;
-  };
-  
-  /** Global layout style */
-  layout?: 'topnav' | 'sidenav' | 'solidSidenav';
-  
-  /** Corner style */
-  rounded?: 'default' | 'sharp';
-  
-  /** Background configuration */
   background?: {
-    style?: string;
+    decoration?: 'gradient' | 'grid' | 'windows';
+    color?: ColorPair;
+    image?: ImageConfig;
   };
-  
-  /** Custom background image URL */
-  backgroundImage?: string;
-  
-  /** Meta tags added to every page */
-  metadata?: Record<string, string>;
-  
-  /** SEO configuration */
+  styling?: {
+    eyebrows?: 'section' | 'breadcrumbs';
+    latex?: boolean;
+    codeblocks?: CodeblockStyle;
+  };
+  thumbnails?: {
+    appearance?: 'light' | 'dark';
+    background?: string;
+    fonts?: Pick<FontConfig, 'family'>;
+  };
+  navbar?: {
+    links?: NavbarLink[];
+    primary?: NavbarPrimary;
+  };
+  footer?: {
+    socials?: Partial<Record<FooterSocial, string>>;
+    links?: Array<{
+      header: string;
+      items: Array<{ label: string; href: string }>;
+    }>;
+  };
+  banner?: {
+    content: string;
+    dismissible?: boolean;
+    type?: 'info' | 'warning' | 'critical';
+    color?: string | ColorPair;
+  };
+  interaction?: {
+    drilldown?: boolean;
+  };
+  contextual?: {
+    options: ContextualOption[];
+    display?: 'header' | 'toc';
+  };
+  redirects?: Array<{
+    source: string;
+    destination: string;
+    permanent?: boolean;
+  }>;
+  variables?: Record<string, string>;
+  metadata?: {
+    timestamp?: boolean;
+  };
+  errors?: {
+    404: {
+      redirect?: boolean;
+      title?: string;
+      description?: string;
+    };
+  };
+  api?: ApiConfig;
   seo?: {
     indexing?: 'navigable' | 'all';
+    metatags?: Record<string, string>;
   };
-  
-  /** URL redirect configurations */
-  redirects?: Array<{
-    from: string;
-    to: string;
-  }>;
-  
-  /** Hide all feedback buttons globally */
-  hideFeedbackButtons?: boolean;
+  search?: {
+    prompt?: string;
+  };
+  integrations?: IntegrationsConfig;
+}
+
+export type ImageConfig = string | {
+  light: string;
+  dark: string;
+};
+
+export interface FontConfig {
+  family: string;
+  weight?: number;
+  source?: string;
+  format?: 'woff' | 'woff2';
+}
+
+export interface ColorPair {
+  light: string;
+  dark: string;
 }
 
 export interface Navigation {
-  /** Simple page list (for single-version docs) */
-  pages?: string[];
-  
-  /** Navigation groups (for single-version docs) */
-  groups?: Group[];
-  
-  /** Top-level tabs (for single-version docs) */
-  tabs?: NavigationTab[];
-  
-  /** Multi-version navigation */
-  versions?: Version[];
-  
-  /** Multi-language navigation */
-  languages?: Language[];
-  
-  /** Dropdown menus */
-  dropdowns?: Dropdown[];
-  
-  /** Anchor sections */
-  anchors?: Anchor[];
+  global?: {
+    tabs?: GlobalNavItem[];
+    anchors?: GlobalNavItem[];
+    dropdowns?: GlobalNavItem[];
+    languages?: GlobalNavItem[];
+    versions?: GlobalNavItem[];
+    products?: ProductNavItem[];
+  };
+  directory?: 'none' | 'accordion' | 'card';
+  products?: ProductNavItem[];
+  languages?: LanguageNavItem[];
+  versions?: VersionNavItem[];
+  tabs?: TabNavItem[];
+  dropdowns?: DropdownNavItem[];
+  anchors?: AnchorNavItem[];
+  groups?: GroupNavItem[];
+  pages?: PageRef[];
 }
 
-export interface Group {
-  /** Group name */
+export type PageRef = string | GroupNavItem;
+
+export interface GroupNavItem {
   group: string;
-  
-  /** Group icon */
+  pages?: PageRef[];
+  groups?: GroupNavItem[];
   icon?: string;
-  
-  /** Icon style type */
-  iconType?: 'solid' | 'regular' | 'light' | 'thin' | 'duotone';
-  
-  /** Pages or nested groups */
-  pages?: Array<string | Group>;
+  iconType?: string;
+  root?: string;
+  tag?: string;
+  expanded?: boolean;
+  hidden?: boolean;
+  searchable?: boolean;
+  boost?: number;
+  directory?: Navigation['directory'];
+  openapi?: OpenApiConfig;
+  asyncapi?: OpenApiConfig;
 }
 
-export interface NavigationTab {
-  /** Tab name */
+export interface TabNavItem {
   tab: string;
-  
-  /** Tab icon */
+  pages?: PageRef[];
+  groups?: GroupNavItem[];
+  dropdowns?: DropdownNavItem[];
+  anchors?: AnchorNavItem[];
+  versions?: VersionNavItem[];
+  languages?: LanguageNavItem[];
+  menu?: MenuNavItem[];
   icon?: string;
-  
-  /** External URL */
-  href?: string;
-  
-  /** Pages in this tab */
-  pages?: Array<string | Group>;
-  
-  /** Groups in this tab */
-  groups?: Group[];
+  hidden?: boolean;
+  searchable?: boolean;
+  align?: 'left' | 'right';
+  directory?: Navigation['directory'];
+  openapi?: OpenApiConfig;
+  asyncapi?: OpenApiConfig;
 }
 
-export interface Tab {
-  /** Tab display name */
-  name: string;
-  
-  /** Tab URL path or external link */
-  url: string;
-  
-  /** External URL */
-  href?: string;
-}
-
-export interface Version {
-  /** Version identifier */
+export interface VersionNavItem extends Omit<TabNavItem, 'tab'> {
   version: string;
-  
-  /** Is this the default version? */
   default?: boolean;
-  
-  /** Hide this version? */
-  hidden?: boolean;
-  
-  /** Tabs for this version */
-  tabs?: NavigationTab[];
-  
-  /** Groups for this version */
-  groups?: Group[];
-  
-  /** Pages for this version */
-  pages?: Array<string | Group>;
+  tag?: string;
 }
 
-export interface Language {
-  /** Language code */
-  language: 'en' | 'cn' | 'zh' | 'zh-Hans' | 'zh-Hant' | 'es' | 'fr' | 'ja' | 'jp' | 'pt' | 'pt-BR' | 'de' | 'ko' | 'it' | 'ru' | 'id' | 'ar' | 'tr';
-  
-  /** Is this the default language? */
+export interface LanguageNavItem extends Omit<TabNavItem, 'tab'> {
+  language: string;
   default?: boolean;
-  
-  /** Hide this language? */
-  hidden?: boolean;
-  
-  /** URL path for this language */
-  url?: string;
-  
-  /** Tabs for this language */
-  tabs?: NavigationTab[];
-  
-  /** Groups for this language */
-  groups?: Group[];
-  
-  /** Pages for this language */
-  pages?: Array<string | Group>;
 }
 
-export interface Dropdown {
-  /** Dropdown menu name */
+export interface DropdownNavItem extends Omit<TabNavItem, 'tab'> {
   dropdown: string;
-  
-  /** Dropdown icon */
-  icon?: string;
-  
-  /** Dropdown menu items */
-  items?: Array<{
-    name: string;
-    url: string;
-  }>;
+  description?: string;
 }
 
-export interface Anchor {
-  /** Anchor section name */
+export interface AnchorNavItem extends Omit<TabNavItem, 'tab'> {
   anchor: string;
-  
-  /** Anchor icon */
-  icon?: string;
-  
-  /** Anchor color (hex) */
-  color?: string;
-  
-  /** Pages in this anchor section */
-  pages?: Array<string | Group>;
-  
-  /** Groups in this anchor section */
-  groups?: Group[];
+  href?: string;
+  color?: string | ColorPair;
 }
+
+export interface ProductNavItem extends Omit<TabNavItem, 'tab'> {
+  product: string;
+  name?: string;
+  description?: string;
+  icon?: string;
+  color?: string | ColorPair;
+}
+
+export interface MenuNavItem {
+  item: string;
+  href?: string;
+  pages?: PageRef[];
+  groups?: GroupNavItem[];
+  icon?: string;
+  description?: string;
+  hidden?: boolean;
+}
+
+export interface GlobalNavItem {
+  tab?: string;
+  anchor?: string;
+  dropdown?: string;
+  language?: string;
+  version?: string;
+  href: string;
+  icon?: string;
+  iconType?: string;
+  hidden?: boolean;
+  default?: boolean;
+  color?: string | ColorPair;
+}
+
+export type OpenApiConfig = string | string[] | {
+  source: string;
+  directory?: string;
+};
+
+export interface ApiConfig {
+  openapi?: OpenApiConfig;
+  asyncapi?: OpenApiConfig;
+  playground?: {
+    display?: 'interactive' | 'simple' | 'none' | 'auth';
+    proxy?: boolean;
+    credentials?: boolean;
+  };
+  params?: {
+    expanded?: 'all' | 'closed';
+    post?: string[];
+  };
+  url?: 'full';
+  examples?: {
+    languages?: string[];
+    defaults?: 'required' | 'all';
+    prefill?: boolean;
+    autogenerate?: boolean;
+  };
+  mdx?: {
+    auth?: {
+      method?: 'bearer' | 'basic' | 'key' | 'cobo';
+      name?: string;
+    };
+    server?: string | string[];
+  };
+}
+
+export interface IntegrationsConfig {
+  adobe?: { launchUrl: string };
+  amplitude?: { apiKey: string };
+  clarity?: { projectId: string };
+  clearbit?: { publicApiKey: string };
+  fathom?: { siteId: string };
+  frontchat?: { snippetId: string };
+  ga4?: { measurementId: string };
+  gtm?: { tagId: string };
+  heap?: { appId: string };
+  hightouch?: { writeKey: string; apiHost?: string };
+  hotjar?: { hjid: string; hjsv: string };
+  intercom?: { appId: string };
+  koala?: { publicApiKey: string };
+  logrocket?: { appId: string };
+  mixpanel?: { projectToken: string; region?: 'us' | 'eu' | 'in' };
+  onetrust?: { domainScript: string; categoryId?: string; scriptSource?: string };
+  pirsch?: { id: string };
+  plausible?: { domain: string; server?: string };
+  posthog?: { apiKey: string; apiHost?: string; sessionRecording?: boolean };
+  segment?: { key: string };
+  telemetry?: { enabled?: boolean };
+  cookies?: { key?: string; value?: string };
+}
+
+export type FooterSocial =
+  | 'x'
+  | 'website'
+  | 'facebook'
+  | 'youtube'
+  | 'discord'
+  | 'slack'
+  | 'github'
+  | 'linkedin'
+  | 'instagram'
+  | 'hacker-news'
+  | 'medium'
+  | 'telegram'
+  | 'twitter'
+  | 'x-twitter'
+  | 'earth-americas'
+  | 'bluesky'
+  | 'threads'
+  | 'reddit'
+  | 'podcast';
+
+export type NavbarLink =
+  | { type: 'github' | 'discord'; href: string; icon?: string; iconType?: string }
+  | { label: string; href: string; icon?: string; iconType?: string };
+
+export type NavbarPrimary =
+  | { type: 'github' | 'discord'; href: string }
+  | { type: 'button'; label: string; href: string };

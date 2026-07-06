@@ -1,7 +1,7 @@
 {
   "name": "mintlifier",
   "version": "2.1.0",
-  "description": "Interactive CLI tool for building Mintlify docs.json configuration with enhanced versioning, migration tools, and 2024-2025 schema support",
+  "description": "Interactive CLI tool for building current Mintlify docs.json configurations with versioning helpers",
   "type": "module",
   "main": "index.js",
   "bin": {
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node test/test-runner.js",
+    "test": "node --test test/*.test.js",
     "build-docs": "node scripts/build-docs.js"
   },
   "keywords": [
@@ -20,7 +20,6 @@
     "generator",
     "configuration",
     "versioning",
-    "migration",
     "docs.json",
     "mdx",
     "openapi",
@@ -47,7 +46,7 @@
     "ora": "^8.2.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.17.0"
   },
   "preferGlobal": false,
   "files": [

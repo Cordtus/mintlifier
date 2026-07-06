@@ -6,6 +6,11 @@ import { fileURLToPath } from 'url';
 import { input, confirm, select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { glob } from 'glob';
+import {
+  hasVersioning,
+  isSupportedVersionLabel,
+  isTopLevelVersionedNavigation
+} from '../lib/navigation-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,9 +65,9 @@ export async function freezeVersion(options = {}) {
   const docsConfig = await fs.readJson(docsJsonPath);
   
   // Check if versioning is already set up
-  const hasVersioning = docsConfig.navigation?.versions?.length > 0;
+  const versioningExists = hasVersioning(docsConfig.navigation);
   
-  if (!hasVersioning) {
+  if (!versioningExists) {
     console.log(chalk.yellow('ℹ Documentation is not currently versioned'));
     const setupVersioning = await confirm({
       message: 'Would you like to set up versioning for this documentation?',
@@ -79,6 +84,10 @@ export async function freezeVersion(options = {}) {
     return;
   }
 
+  if (!isTopLevelVersionedNavigation(docsConfig.navigation)) {
+    throw new Error('Nested/product-scoped versioning is detected. The legacy freezer only supports top-level navigation.versions.');
+  }
+
   // Load or create versions.json in the docs directory
   const versionsJsonPath = path.join(docsDir, 'versions.json');
   let versionsData = { versions: [], currentVersion: null, workingVersion: 'next' };
@@ -88,15 +97,18 @@ export async function freezeVersion(options = {}) {
   }
 
   // Get current version to freeze
-  let currentVersion = versionsData.currentVersion;
+  let currentVersion = options.version || options.currentVersion || versionsData.currentVersion;
   
   if (!currentVersion) {
+    if (options.nonInteractive) {
+      throw new Error('Missing --version for non-interactive freeze');
+    }
     console.log(chalk.yellow('ℹ This appears to be the first version freeze'));
     currentVersion = await input({
-      message: 'Enter the version to freeze (e.g., v1.0.0):',
+      message: 'Enter the version to freeze (e.g., v1.0.0, v0.53, v8.5.x):',
       validate: (value) => {
-        if (!/^v?\d+\.\d+\.\d+/.test(value)) {
-          return 'Please use semantic versioning (e.g., v1.0.0)';
+        if (!isSupportedVersionLabel(value)) {
+          return 'Use a path-safe version label such as v1.0.0, v0.53, v8.5.x, next, or main';
         }
         return true;
       }
@@ -105,8 +117,12 @@ export async function freezeVersion(options = {}) {
     console.log(chalk.green(`ℹ Current development version: ${currentVersion}`));
   }
 
-  // Ensure version has 'v' prefix
-  if (!currentVersion.startsWith('v')) {
+  if (!isSupportedVersionLabel(currentVersion)) {
+    throw new Error(`Invalid version label: ${currentVersion}`);
+  }
+
+  // Keep old convenience for numeric semantic inputs while allowing arbitrary docs labels.
+  if (/^\d+\.\d+/.test(currentVersion)) {
     currentVersion = 'v' + currentVersion;
   }
 
@@ -119,18 +135,28 @@ export async function freezeVersion(options = {}) {
   }
 
   // Get new development version
-  const newVersion = await input({
-    message: 'Enter the new development version (e.g., v1.1.0):',
-    validate: (value) => {
-      if (!/^v?\d+\.\d+\.\d+/.test(value)) {
-        return 'Please use semantic versioning (e.g., v1.1.0)';
-      }
-      return true;
+  let newVersion = options.nextVersion || options.newVersion;
+  if (!newVersion) {
+    if (options.nonInteractive) {
+      throw new Error('Missing --next-version for non-interactive freeze');
     }
-  });
+    newVersion = await input({
+      message: 'Enter the new development version (e.g., v1.1.0, v0.54, next):',
+      validate: (value) => {
+        if (!isSupportedVersionLabel(value)) {
+          return 'Use a path-safe version label such as v1.1.0, v0.54, next, or main';
+        }
+        return true;
+      }
+    });
+  }
 
-  // Ensure new version has 'v' prefix
-  const newVersionFinal = newVersion.startsWith('v') ? newVersion : 'v' + newVersion;
+  if (!isSupportedVersionLabel(newVersion)) {
+    throw new Error(`Invalid next version label: ${newVersion}`);
+  }
+
+  // Ensure new version has 'v' prefix for numeric semantic inputs
+  const newVersionFinal = /^\d+\.\d+/.test(newVersion) ? 'v' + newVersion : newVersion;
 
   // Display summary
   console.log(chalk.cyan('\n===================================='));
@@ -145,10 +171,12 @@ export async function freezeVersion(options = {}) {
   console.log('  3. Update docs.json navigation');
   console.log('  4. Update versions.json registry\n');
 
-  const proceed = await confirm({
-    message: 'Proceed with version freeze?',
-    default: true
-  });
+  const proceed = options.yes || options.nonInteractive
+    ? true
+    : await confirm({
+        message: 'Proceed with version freeze?',
+        default: true
+      });
 
   if (!proceed) {
     console.log(chalk.yellow('Operation cancelled'));
@@ -252,6 +280,25 @@ export async function freezeVersion(options = {}) {
   );
 
   if (workingVersionNav) {
+    const knownVersionPrefixes = [
+      versionsData.workingVersion,
+      ...versionsData.versions,
+      'next',
+      'main',
+      'latest',
+      'current'
+    ].filter((value, index, values) => value && values.indexOf(value) === index);
+
+    function stripKnownVersionPrefix(value) {
+      for (const prefix of knownVersionPrefixes) {
+        if (value === prefix) return '';
+        if (value.startsWith(`${prefix}/`)) {
+          return value.slice(prefix.length + 1);
+        }
+      }
+      return value;
+    }
+
     // Create frozen version navigation
     const frozenNav = JSON.parse(JSON.stringify(workingVersionNav));
     frozenNav.version = currentVersion;
@@ -267,8 +314,8 @@ export async function freezeVersion(options = {}) {
             !obj.includes('/assets/') &&
             !obj.includes('/images/') &&
             !obj.includes('/static/')) {
-          // Remove any existing version prefix and add new one
-          const cleanPath = obj.replace(/^(v\d+\.\d+\.\d+|next|main|latest|current)\//, '');
+          // Remove any existing known version prefix and add new one.
+          const cleanPath = stripKnownVersionPrefix(obj);
           return `${versionPrefix}/${cleanPath}`;
         }
         return obj;
@@ -614,17 +661,17 @@ async function setupVersioningForExisting(docsConfig, docsJsonPath, docsDir) {
 
   // Get initial version for tracking
   const initialVersion = await input({
-    message: 'What version are you currently working on? (e.g., v1.0.0):',
+    message: 'What version are you currently working on? (e.g., v1.0.0, v0.53, v8.5.x):',
     default: 'v1.0.0',
     validate: (value) => {
-      if (!/^v?\d+\.\d+\.\d+/.test(value)) {
-        return 'Please use semantic versioning (e.g., v1.0.0)';
+      if (!isSupportedVersionLabel(value)) {
+        return 'Use a path-safe version label such as v1.0.0, v0.53, v8.5.x, next, or main';
       }
       return true;
     }
   });
 
-  const versionWithPrefix = initialVersion.startsWith('v') ? initialVersion : 'v' + initialVersion;
+  const versionWithPrefix = /^\d+\.\d+/.test(initialVersion) ? 'v' + initialVersion : initialVersion;
 
   // Ask if they want to create an initial version snapshot
   const createInitialSnapshot = await confirm({

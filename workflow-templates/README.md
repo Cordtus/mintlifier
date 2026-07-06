@@ -1,6 +1,6 @@
 # Workflow Templates
 
-Production-ready GitHub Actions workflows for automated documentation management.
+GitHub Actions templates for automated Mintlify documentation management.
 
 ## Available Workflows
 
@@ -37,8 +37,14 @@ Deploy this in your project/source repository:
 ### For Documentation Repository
 
 ```bash
+DOCS_REPO=/path/to/your/docs-repo
+mkdir -p "$DOCS_REPO/.github/workflows" "$DOCS_REPO/scripts"
+
 # Copy all documentation workflows
-cp sync-changelog.yml freeze-version.yml docs-automation.yml ../.github/workflows/
+cp sync-changelog.yml freeze-version.yml docs-automation.yml "$DOCS_REPO/.github/workflows/"
+
+# Copy changelog helper scripts if you enable changelog sync
+cp ../scripts/refresh-changelog.sh ../scripts/parse-external-changelog.js "$DOCS_REPO/scripts/"
 ```
 
 ### For Source Repository (if separate)
@@ -69,6 +75,7 @@ Create Personal Access Token:
 
 Edit workflows to match your:
 - Repository names
+- Changelog source repository (`source_repo` input or `CHANGELOG_SOURCE_REPO` repository variable)
 - Branch names
 - Review requirements
 - Version formats
@@ -82,6 +89,7 @@ All workflows:
 -  Include comprehensive error handling
 -  Provide detailed summaries
 -  Support various version formats
+-  Use `npx mintlifier freeze --version --next-version --automated` for non-interactive freezes
 
 ## Usage Examples
 
@@ -118,6 +126,5 @@ on:
 ## Support
 
 For issues or questions:
-- Check the [Automation Guide](/docs/features/automation.mdx)
 - Review workflow logs in Actions tab
 - Open an issue in this repository

@@ -14,6 +14,9 @@ on:
       next_version:
         description: 'Next development version (e.g., v1.1.0)'
         required: true
+      source_repo:
+        description: 'Source repository containing the changelog (owner/repo)'
+        required: false
       update_changelog:
         description: 'Update changelog before freezing'
         type: boolean
@@ -26,6 +29,10 @@ on:
     # - release_version: version to freeze
     # - next_version: next development version
     # - update_changelog: boolean (optional, default true)
+    # - source_repo: owner/repo for changelog sync (if update_changelog is true)
+
+env:
+  CHANGELOG_SOURCE_REPO: ${{ vars.CHANGELOG_SOURCE_REPO }}
 
 permissions:
   contents: write
@@ -44,7 +51,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Determine versions
         id: versions
@@ -53,20 +60,27 @@ jobs:
             RELEASE="${{ github.event.client_payload.release_version }}"
             NEXT="${{ github.event.client_payload.next_version }}"
             UPDATE_CHANGELOG="${{ github.event.client_payload.update_changelog }}"
+            SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
           else
             RELEASE="${{ github.event.inputs.release_version }}"
             NEXT="${{ github.event.inputs.next_version }}"
             UPDATE_CHANGELOG="${{ github.event.inputs.update_changelog }}"
+            SOURCE_REPO="${{ github.event.inputs.source_repo }}"
           fi
           
           # Default update_changelog to true if not specified
           if [ -z "$UPDATE_CHANGELOG" ]; then
             UPDATE_CHANGELOG="true"
           fi
+
+          if [ -z "$SOURCE_REPO" ]; then
+            SOURCE_REPO="${CHANGELOG_SOURCE_REPO:-}"
+          fi
           
           echo "release_version=$RELEASE" >> $GITHUB_OUTPUT
           echo "next_version=$NEXT" >> $GITHUB_OUTPUT
           echo "update_changelog=$UPDATE_CHANGELOG" >> $GITHUB_OUTPUT
+          echo "source_repo=$SOURCE_REPO" >> $GITHUB_OUTPUT
 
       - name: Check if version already frozen
         id: check_frozen
@@ -82,96 +96,26 @@ jobs:
       - name: Update changelog (if requested)
         if: steps.check_frozen.outputs.already_frozen == 'false' && steps.versions.outputs.update_changelog == 'true'
         run: |
+          if [ -z "${{ steps.versions.outputs.source_repo }}" ]; then
+            echo "Error: source_repo is required when update_changelog is true, or set repository variable CHANGELOG_SOURCE_REPO"
+            exit 1
+          fi
+
           echo " Updating changelog from latest release..."
-          ./scripts/sync-changelog.sh "${{ steps.versions.outputs.release_version }}"
+          ./scripts/refresh-changelog.sh \
+            "${{ steps.versions.outputs.source_repo }}" \
+            "${{ steps.versions.outputs.release_version }}"
 
       - name: Freeze version
         if: steps.check_frozen.outputs.already_frozen == 'false'
         id: freeze
         run: |
-          CURRENT_VERSION="${{ steps.versions.outputs.release_version }}"
-          NEXT_VERSION="${{ steps.versions.outputs.next_version }}"
-          
-          echo " Freezing version $CURRENT_VERSION..."
-          
-          # Create docs directory if it doesn't exist
-          mkdir -p docs
-          
-          # Create version directory and copy docs
-          mkdir -p "docs/$CURRENT_VERSION"
-          
-          # Copy all MDX files and assets (excluding already versioned docs)
-          find . -name "*.mdx" -not -path "./docs/v*/*" -not -path "./node_modules/*" -not -path "./mintlify-docs/*" | while read -r file; do
-            # Skip if file is in root directory
-            if [ "$(dirname "$file")" = "." ]; then
-              continue
-            fi
-            
-            target="docs/$CURRENT_VERSION/${file#./}"
-            mkdir -p "$(dirname "$target")"
-            cp "$file" "$target"
-          done
-          
-          # Copy images and other assets
-          if [ -d "images" ]; then
-            cp -r images "docs/$CURRENT_VERSION/"
-          fi
-          if [ -d "assets" ]; then
-            cp -r assets "docs/$CURRENT_VERSION/"
-          fi
-          
-          # Update internal links in the versioned files
-          find "docs/$CURRENT_VERSION" -name "*.mdx" -type f -exec sed -i.bak "s|](/|](/docs/$CURRENT_VERSION/|g" {} \;
-          find "docs/$CURRENT_VERSION" -name "*.mdx.bak" -type f -delete
-          
-          # Create version metadata
-          cat > "docs/$CURRENT_VERSION/.version-metadata.json" << EOF
-          {
-            "version": "$CURRENT_VERSION",
-            "frozenDate": "$(date '+%Y-%m-%d')",
-            "frozenTimestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-            "nextVersion": "$NEXT_VERSION",
-            "automated": true
-          }
-          EOF
-          
+          npx mintlifier freeze \
+            --version "${{ steps.versions.outputs.release_version }}" \
+            --next-version "${{ steps.versions.outputs.next_version }}" \
+            --automated
           echo "frozen=true" >> $GITHUB_OUTPUT
-          echo " Version $CURRENT_VERSION frozen successfully"
-
-      - name: Update mint.json
-        if: steps.freeze.outputs.frozen == 'true'
-        run: |
-          node -e "
-            const fs = require('fs');
-            const config = JSON.parse(fs.readFileSync('mint.json', 'utf8'));
-            
-            // Initialize versions array if it doesn't exist
-            if (!config.versions) {
-              config.versions = [];
-            }
-            
-            const newVersion = '${{ steps.versions.outputs.next_version }}';
-            const currentVersion = '${{ steps.versions.outputs.release_version }}';
-            
-            // Remove current version if it exists (as string or object)
-            config.versions = config.versions.filter(v => 
-              (typeof v === 'string' ? v : v.name) !== currentVersion
-            );
-            
-            // Add new development version at the beginning
-            if (!config.versions.some(v => (typeof v === 'string' ? v : v.name) === newVersion)) {
-              config.versions.unshift(newVersion);
-            }
-            
-            // Add frozen version with URL
-            config.versions.push({
-              name: currentVersion,
-              url: 'docs/' + currentVersion
-            });
-            
-            fs.writeFileSync('mint.json', JSON.stringify(config, null, 2));
-            console.log(' Updated mint.json with new versions');
-          "
+          echo " Version ${{ steps.versions.outputs.release_version }} frozen successfully"
 
       - name: Create Pull Request
         if: steps.check_frozen.outputs.already_frozen == 'false'
@@ -183,7 +127,7 @@ jobs:
             
             - Frozen documentation at version ${{ steps.versions.outputs.release_version }}
             - Set next development version to ${{ steps.versions.outputs.next_version }}
-            - Updated mint.json with version configuration
+            - Updated docs.json with version configuration
           title: ' Freeze Version ${{ steps.versions.outputs.release_version }}'
           body: |
             ##  Version Freeze
@@ -193,7 +137,7 @@ jobs:
             ### Changes
             -  Created frozen documentation at `/docs/${{ steps.versions.outputs.release_version }}/`
             -  Updated all internal links in frozen version
-            -  Updated `mint.json` with version configuration
+            -  Updated `docs.json` with version configuration
             -  Set next development version to `${{ steps.versions.outputs.next_version }}`
             ${{ steps.versions.outputs.update_changelog == 'true' && '-  Updated changelog/release notes' || '' }}
             
@@ -206,7 +150,8 @@ jobs:
             - [ ] Version numbers are correct
             - [ ] Documentation is properly frozen
             - [ ] Internal links are updated correctly
-            - [ ] mint.json configuration is valid
+            - [ ] Release notes are correct if changelog sync was enabled
+            - [ ] docs.json configuration is valid
             - [ ] No unintended files included
             
             ### Next Steps
@@ -242,6 +187,7 @@ jobs:
             echo "- Frozen version: \`${{ steps.versions.outputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- Next development: \`${{ steps.versions.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- Changelog updated: ${{ steps.versions.outputs.update_changelog }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Changelog source: \`${{ steps.versions.outputs.source_repo }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- Pull Request created for review" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "The frozen documentation will be available at:" >> $GITHUB_STEP_SUMMARY
