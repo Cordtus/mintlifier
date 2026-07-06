@@ -14,6 +14,9 @@ on:
       next_version:
         description: 'Next development version (e.g., v1.1.0)'
         required: true
+      version_scope:
+        description: 'Versioned navigation scope for product-scoped docs (optional)'
+        required: false
       source_repo:
         description: 'Source repository containing the changelog (owner/repo)'
         required: false
@@ -28,6 +31,7 @@ on:
     # Payload should include:
     # - release_version: version to freeze
     # - next_version: next development version
+    # - version_scope: versioned navigation scope (optional)
     # - update_changelog: boolean (optional, default true)
     # - source_repo: owner/repo for changelog sync (if update_changelog is true)
 
@@ -59,11 +63,13 @@ jobs:
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             RELEASE="${{ github.event.client_payload.release_version }}"
             NEXT="${{ github.event.client_payload.next_version }}"
+            VERSION_SCOPE="${{ github.event.client_payload.version_scope }}"
             UPDATE_CHANGELOG="${{ github.event.client_payload.update_changelog }}"
             SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
           else
             RELEASE="${{ github.event.inputs.release_version }}"
             NEXT="${{ github.event.inputs.next_version }}"
+            VERSION_SCOPE="${{ github.event.inputs.version_scope }}"
             UPDATE_CHANGELOG="${{ github.event.inputs.update_changelog }}"
             SOURCE_REPO="${{ github.event.inputs.source_repo }}"
           fi
@@ -79,6 +85,7 @@ jobs:
           
           echo "release_version=$RELEASE" >> $GITHUB_OUTPUT
           echo "next_version=$NEXT" >> $GITHUB_OUTPUT
+          echo "version_scope=$VERSION_SCOPE" >> $GITHUB_OUTPUT
           echo "update_changelog=$UPDATE_CHANGELOG" >> $GITHUB_OUTPUT
           echo "source_repo=$SOURCE_REPO" >> $GITHUB_OUTPUT
 
@@ -110,7 +117,13 @@ jobs:
         if: steps.check_frozen.outputs.already_frozen == 'false'
         id: freeze
         run: |
+          SCOPE_ARGS=()
+          if [ -n "${{ steps.versions.outputs.version_scope }}" ]; then
+            SCOPE_ARGS=(--scope "${{ steps.versions.outputs.version_scope }}")
+          fi
+
           npx mintlifier freeze \
+            "${SCOPE_ARGS[@]}" \
             --version "${{ steps.versions.outputs.release_version }}" \
             --next-version "${{ steps.versions.outputs.next_version }}" \
             --automated
@@ -127,6 +140,7 @@ jobs:
             
             - Frozen documentation at version ${{ steps.versions.outputs.release_version }}
             - Set next development version to ${{ steps.versions.outputs.next_version }}
+            - Scope: ${{ steps.versions.outputs.version_scope || 'global navigation' }}
             - Updated docs.json with version configuration
           title: ' Freeze Version ${{ steps.versions.outputs.release_version }}'
           body: |
@@ -139,11 +153,13 @@ jobs:
             -  Updated all internal links in frozen version
             -  Updated `docs.json` with version configuration
             -  Set next development version to `${{ steps.versions.outputs.next_version }}`
+            -  Scope: `${{ steps.versions.outputs.version_scope || 'global navigation' }}`
             ${{ steps.versions.outputs.update_changelog == 'true' && '-  Updated changelog/release notes' || '' }}
             
             ### Version Information
             - **Frozen Version**: `${{ steps.versions.outputs.release_version }}`
             - **Next Version**: `${{ steps.versions.outputs.next_version }}`
+            - **Scope**: `${{ steps.versions.outputs.version_scope || 'global navigation' }}`
             - **Freeze Date**: $(date '+%Y-%m-%d')
             
             ### Review Checklist

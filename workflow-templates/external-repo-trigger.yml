@@ -26,6 +26,9 @@ on:
       next_version:
         description: 'Next development version (auto-generated if not provided)'
         required: false
+      version_scope:
+        description: 'Versioned navigation scope for product-scoped docs (optional)'
+        required: false
       docs_repo:
         description: 'Documentation repository (owner/repo)'
         required: false
@@ -49,6 +52,7 @@ jobs:
           if [ "${{ github.event_name }}" = "release" ]; then
             ACTION="both"
             RELEASE_VERSION="${{ github.event.release.tag_name }}"
+            VERSION_SCOPE=""
             # Auto-generate next version (increment patch)
             NEXT_VERSION=$(echo "$RELEASE_VERSION" | awk -F. '{
               if (NF==3) {
@@ -62,6 +66,7 @@ jobs:
             ACTION="${{ github.event.inputs.action }}"
             RELEASE_VERSION="${{ github.event.inputs.release_version }}"
             NEXT_VERSION="${{ github.event.inputs.next_version }}"
+            VERSION_SCOPE="${{ github.event.inputs.version_scope }}"
             
             # Auto-generate next version if not provided but needed
             if [[ "$ACTION" == "freeze-version" || "$ACTION" == "both" ]]; then
@@ -81,6 +86,7 @@ jobs:
           echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "version_scope=$VERSION_SCOPE" >> $GITHUB_OUTPUT
           
           # Log parameters
           echo " Documentation Update Parameters:"
@@ -153,6 +159,7 @@ jobs:
               "client_payload": {
                 "release_version": "${{ steps.params.outputs.release_version }}",
                 "next_version": "${{ steps.params.outputs.next_version }}",
+                "version_scope": "${{ steps.params.outputs.version_scope }}",
                 "update_changelog": false,
                 "source_repo": "${{ github.repository }}",
                 "triggered_by": "${{ github.actor }}",
@@ -179,6 +186,7 @@ jobs:
                 "action": "both",
                 "release_version": "${{ steps.params.outputs.release_version }}",
                 "next_version": "${{ steps.params.outputs.next_version }}",
+                "version_scope": "${{ steps.params.outputs.version_scope }}",
                 "source_version": "${{ steps.params.outputs.release_version }}",
                 "source_repo": "${{ github.repository }}",
                 "triggered_by": "${{ github.actor }}",
@@ -208,6 +216,7 @@ jobs:
           if [[ "${{ steps.params.outputs.action }}" == "freeze-version" || "${{ steps.params.outputs.action }}" == "both" ]]; then
             echo "- **Release Version**: \`${{ steps.params.outputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- **Next Version**: \`${{ steps.params.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Version Scope**: \`${{ steps.params.outputs.version_scope || 'global navigation' }}\`" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY

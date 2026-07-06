@@ -920,6 +920,14 @@ You'll be prompted for:
 - Version to freeze (current)
 - New development version
 
+For product-scoped or nested versioning, list scopes and freeze a selected scope:
+
+\`\`\`bash
+npx mintlifier versioning
+npx mintlifier freeze --scope api-reference --version v2.3.0 --next-version next
+npx mintlifier freeze --scope api-reference --version v2.3.0 --next-version next --dry-run
+\`\`\`
+
 ### Sync Release Notes
 
 Update release notes from source repository:

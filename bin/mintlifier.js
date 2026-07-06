@@ -36,7 +36,8 @@ if (!command || command === 'help' || command === '--help' || command === '-h') 
   console.log('  npx mintlifier init              # Start interactive configuration');
   console.log('  npx mintlifier versioning         # Set up versioning system');
   console.log('  npx mintlifier edit docs.json     # Edit existing configuration');
-  console.log('  npx mintlifier freeze             # Freeze documentation version\n');
+  console.log('  npx mintlifier freeze             # Freeze documentation version');
+  console.log('  npx mintlifier freeze --scope api-reference --version v2.3.0 --next-version next\n');
   
   console.log(chalk.gray('For more information: https://github.com/Cordtus/mintlifier'));
   process.exit(0);

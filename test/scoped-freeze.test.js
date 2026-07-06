@@ -1,0 +1,194 @@
+import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+import fs from 'fs-extra';
+
+import {
+  applyScopedFreezePlan,
+  buildScopedFreezePlan
+} from '../lib/scoped-freeze.js';
+
+function productVersionedConfig() {
+  return {
+    name: 'Scoped Docs',
+    theme: 'mint',
+    colors: {
+      primary: '#0D9373'
+    },
+    navigation: {
+      dropdowns: [
+        {
+          dropdown: 'Cosmos EVM',
+          versions: [
+            {
+              version: 'next',
+              default: true,
+              groups: [
+                {
+                  group: 'Guides',
+                  pages: ['evm/next/intro', 'evm/next/install']
+                }
+              ]
+            },
+            {
+              version: 'v0.5.0',
+              groups: [
+                {
+                  group: 'Guides',
+                  pages: ['evm/v0.5.0/intro']
+                }
+              ]
+            }
+          ]
+        },
+        {
+          dropdown: 'SDKs',
+          versions: [
+            {
+              version: 'next',
+              default: true,
+              groups: [
+                {
+                  group: 'SDKs',
+                  pages: ['sdks/next/javascript']
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  };
+}
+
+test('buildScopedFreezePlan scopes navigation updates to the selected product', () => {
+  const docsConfig = productVersionedConfig();
+  const originalSdkDropdown = structuredClone(docsConfig.navigation.dropdowns[1]);
+  const versionsData = {
+    versionSchema: 2,
+    scopes: {
+      'dropdown:cosmos-evm': {
+        versions: ['v0.5.0'],
+        currentVersion: 'v0.5.0',
+        workingVersion: 'next',
+        defaultVersion: 'next'
+      }
+    }
+  };
+
+  const plan = buildScopedFreezePlan({
+    docsConfig,
+    versionsData,
+    scope: 'cosmos-evm',
+    currentVersion: 'v0.6.0',
+    nextVersion: 'next'
+  });
+
+  assert.equal(plan.scope.id, 'dropdown:cosmos-evm');
+  assert.equal(plan.scope.label, 'Cosmos EVM');
+  assert.deepEqual(plan.fileCopies, [
+    {
+      source: 'evm/next/intro.mdx',
+      target: 'evm/v0.6.0/intro.mdx'
+    },
+    {
+      source: 'evm/next/install.mdx',
+      target: 'evm/v0.6.0/install.mdx'
+    }
+  ]);
+
+  assert.deepEqual(
+    plan.updatedDocsConfig.navigation.dropdowns[0].versions.map((version) => version.version),
+    ['next', 'v0.6.0', 'v0.5.0']
+  );
+  assert.deepEqual(
+    plan.updatedDocsConfig.navigation.dropdowns[0].versions[1].groups[0].pages,
+    ['evm/v0.6.0/intro', 'evm/v0.6.0/install']
+  );
+  assert.deepEqual(plan.updatedDocsConfig.navigation.dropdowns[1], originalSdkDropdown);
+  assert.deepEqual(plan.updatedVersionsData.scopes['dropdown:cosmos-evm'], {
+    versions: ['v0.6.0', 'v0.5.0'],
+    currentVersion: 'next',
+    workingVersion: 'next',
+    defaultVersion: 'v0.6.0'
+  });
+});
+
+test('applyScopedFreezePlan copies and rewrites only files in the selected scope', async () => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-scoped-freeze-'));
+  const docsDir = path.join(projectRoot, 'docs');
+  const docsJsonPath = path.join(projectRoot, 'docs.json');
+  const versionsJsonPath = path.join(docsDir, 'versions.json');
+  const docsConfig = productVersionedConfig();
+  const versionsData = {
+    versionSchema: 2,
+    scopes: {
+      'dropdown:cosmos-evm': {
+        versions: ['v0.5.0'],
+        currentVersion: 'v0.5.0',
+        workingVersion: 'next',
+        defaultVersion: 'next'
+      }
+    }
+  };
+
+  await fs.outputFile(
+    path.join(docsDir, 'evm/next/intro.mdx'),
+    '# Intro\n\n[Install](/evm/next/install)\n\n[Logo](/images/logo.png)\n'
+  );
+  await fs.outputFile(path.join(docsDir, 'evm/next/install.mdx'), '# Install\n');
+  await fs.outputFile(path.join(docsDir, 'sdks/next/javascript.mdx'), '# JavaScript SDK\n');
+  await fs.writeJson(docsJsonPath, docsConfig, { spaces: 2 });
+  await fs.writeJson(versionsJsonPath, versionsData, { spaces: 2 });
+
+  const plan = buildScopedFreezePlan({
+    docsConfig,
+    versionsData,
+    scope: 'cosmos-evm',
+    currentVersion: 'v0.6.0',
+    nextVersion: 'next'
+  });
+
+  await applyScopedFreezePlan({
+    docsDir,
+    docsJsonPath,
+    versionsJsonPath,
+    plan,
+    now: new Date('2026-07-06T12:00:00.000Z')
+  });
+
+  assert.equal(await fs.pathExists(path.join(docsDir, 'evm/v0.6.0/intro.mdx')), true);
+  assert.equal(await fs.pathExists(path.join(docsDir, 'evm/v0.6.0/install.mdx')), true);
+  assert.equal(await fs.pathExists(path.join(docsDir, 'sdks/v0.6.0/javascript.mdx')), false);
+
+  const frozenIntro = await fs.readFile(path.join(docsDir, 'evm/v0.6.0/intro.mdx'), 'utf8');
+  assert.match(frozenIntro, /\[Install\]\(\/evm\/v0\.6\.0\/install\)/);
+  assert.match(frozenIntro, /\[Logo\]\(\/images\/logo\.png\)/);
+
+  const updatedDocsConfig = await fs.readJson(docsJsonPath);
+  assert.deepEqual(
+    updatedDocsConfig.navigation.dropdowns[0].versions.map((version) => version.version),
+    ['next', 'v0.6.0', 'v0.5.0']
+  );
+  assert.deepEqual(
+    updatedDocsConfig.navigation.dropdowns[1].versions.map((version) => version.version),
+    ['next']
+  );
+
+  const updatedVersionsData = await fs.readJson(versionsJsonPath);
+  assert.deepEqual(updatedVersionsData.scopes['dropdown:cosmos-evm'].versions, ['v0.6.0', 'v0.5.0']);
+
+  const metadata = await fs.readJson(path.join(docsDir, 'evm/v0.6.0/.version-metadata.json'));
+  assert.deepEqual(metadata, {
+    version: 'v0.6.0',
+    scope: 'dropdown:cosmos-evm',
+    scopeLabel: 'Cosmos EVM',
+    frozenDate: '2026-07-06',
+    frozenTimestamp: '2026-07-06T12:00:00.000Z',
+    nextVersion: 'next',
+    nodeVersion: process.version
+  });
+});

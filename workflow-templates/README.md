@@ -76,6 +76,7 @@ Create Personal Access Token:
 Edit workflows to match your:
 - Repository names
 - Changelog source repository (`source_repo` input or `CHANGELOG_SOURCE_REPO` repository variable)
+- Versioning scope (`version_scope` input) for product-scoped nested versioning
 - Branch names
 - Review requirements
 - Version formats
@@ -89,7 +90,7 @@ All workflows:
 -  Include comprehensive error handling
 -  Provide detailed summaries
 -  Support various version formats
--  Use `npx mintlifier freeze --version --next-version --automated` for non-interactive freezes
+-  Use `npx mintlifier freeze --version --next-version --automated` for flat freezes and add `--scope` for product-scoped freezes
 
 ## Usage Examples
 

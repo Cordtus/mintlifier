@@ -7,10 +7,16 @@ import { input, confirm, select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { glob } from 'glob';
 import {
+  findVersionScopes,
   hasVersioning,
   isSupportedVersionLabel,
-  isTopLevelVersionedNavigation
+  isTopLevelVersionedNavigation,
+  resolveVersionScope
 } from '../lib/navigation-utils.js';
+import {
+  applyScopedFreezePlan,
+  buildScopedFreezePlan
+} from '../lib/scoped-freeze.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +39,141 @@ function versionCompare(a, b) {
   if (!aPre && bPre) return -1;
   if (aPre && !bPre) return 1;
   return bPre.localeCompare(aPre);
+}
+
+function normalizeVersionInput(value) {
+  if (!isSupportedVersionLabel(value)) {
+    throw new Error(`Invalid version label: ${value}`);
+  }
+  return /^\d+\.\d+/.test(value) ? `v${value}` : value;
+}
+
+async function chooseVersionScope(scopes, requestedScope, nonInteractive) {
+  if (requestedScope || scopes.length === 1) {
+    return resolveVersionScope(scopes, requestedScope);
+  }
+
+  if (nonInteractive) {
+    return resolveVersionScope(scopes, requestedScope);
+  }
+
+  const scopeId = await select({
+    message: 'Which versioned documentation scope should be frozen?',
+    choices: scopes.map((scope) => ({
+      name: `${scope.label} (${scope.id})`,
+      value: scope.id
+    }))
+  });
+
+  return resolveVersionScope(scopes, scopeId);
+}
+
+function scopeVersionData(versionsData, scopeId) {
+  return versionsData?.scopes?.[scopeId] || {
+    versions: versionsData?.versions || [],
+    currentVersion: versionsData?.currentVersion || null,
+    workingVersion: versionsData?.workingVersion || 'next',
+    defaultVersion: versionsData?.defaultVersion || null
+  };
+}
+
+async function freezeScopedVersion({
+  docsConfig,
+  docsJsonPath,
+  docsDir,
+  versionsJsonPath,
+  versionsData,
+  options
+}) {
+  const scopes = findVersionScopes(docsConfig.navigation);
+  const scope = await chooseVersionScope(scopes, options.scope, options.nonInteractive);
+  const scopeData = scopeVersionData(versionsData, scope.id);
+
+  let currentVersion = options.version || options.currentVersion || scopeData.currentVersion;
+  if (!currentVersion) {
+    if (options.nonInteractive) {
+      throw new Error('Missing --version for non-interactive freeze');
+    }
+    currentVersion = await input({
+      message: `Enter the version to freeze for ${scope.label} (e.g., v1.0.0, v0.53, v8.5.x):`,
+      validate: (value) => {
+        if (!isSupportedVersionLabel(value)) {
+          return 'Use a path-safe version label such as v1.0.0, v0.53, v8.5.x, next, or main';
+        }
+        return true;
+      }
+    });
+  }
+  currentVersion = normalizeVersionInput(currentVersion);
+
+  let newVersion = options.nextVersion || options.newVersion;
+  if (!newVersion) {
+    if (options.nonInteractive) {
+      throw new Error('Missing --next-version for non-interactive freeze');
+    }
+    newVersion = await input({
+      message: `Enter the new development version for ${scope.label} (e.g., next, v1.1.0, v0.54):`,
+      default: scopeData.workingVersion || 'next',
+      validate: (value) => {
+        if (!isSupportedVersionLabel(value)) {
+          return 'Use a path-safe version label such as v1.1.0, v0.54, next, or main';
+        }
+        return true;
+      }
+    });
+  }
+  newVersion = normalizeVersionInput(newVersion);
+
+  const plan = buildScopedFreezePlan({
+    docsConfig,
+    versionsData,
+    scope: scope.id,
+    currentVersion,
+    nextVersion: newVersion
+  });
+
+  console.log(chalk.cyan('\n===================================='));
+  console.log(chalk.cyan('   Scoped Version Freeze Summary'));
+  console.log(chalk.cyan('====================================\n'));
+  console.log(`  Scope:           ${chalk.yellow(plan.scope.label)} (${plan.scope.id})`);
+  console.log(`  Freeze version:  ${chalk.yellow(plan.currentVersion)} (creates snapshot)`);
+  console.log(`  New dev version: ${chalk.green(plan.nextVersion)} (for future development)`);
+  console.log(`  Working version: ${chalk.blue(plan.workingVersion)}`);
+  console.log(`  Files to copy:   ${plan.fileCopies.length}\n`);
+
+  if (options.dryRun) {
+    console.log(chalk.yellow('Dry run only. No files were changed.'));
+    plan.fileCopies.forEach((copy) => {
+      console.log(chalk.gray(`  ${copy.source} -> ${copy.target}`));
+    });
+    return;
+  }
+
+  const proceed = options.yes || options.nonInteractive
+    ? true
+    : await confirm({
+        message: 'Proceed with scoped version freeze?',
+        default: true
+      });
+
+  if (!proceed) {
+    console.log(chalk.yellow('Operation cancelled'));
+    return;
+  }
+
+  const result = await applyScopedFreezePlan({
+    docsDir,
+    docsJsonPath,
+    versionsJsonPath,
+    plan
+  });
+
+  console.log(chalk.green(`✓ Copied ${result.copiedFiles} scoped documentation files`));
+  console.log(chalk.green('✓ Updated docs.json navigation'));
+  console.log(chalk.green('✓ Updated versions.json'));
+  console.log(chalk.green(`✓ Created ${result.metadataPath}`));
+
+  console.log(chalk.green('\n✅ Scoped version freeze completed successfully!\n'));
 }
 
 // Main function to freeze version
@@ -84,16 +225,24 @@ export async function freezeVersion(options = {}) {
     return;
   }
 
-  if (!isTopLevelVersionedNavigation(docsConfig.navigation)) {
-    throw new Error('Nested/product-scoped versioning is detected. The legacy freezer only supports top-level navigation.versions.');
-  }
-
   // Load or create versions.json in the docs directory
   const versionsJsonPath = path.join(docsDir, 'versions.json');
   let versionsData = { versions: [], currentVersion: null, workingVersion: 'next' };
   
   if (await fs.pathExists(versionsJsonPath)) {
     versionsData = await fs.readJson(versionsJsonPath);
+  }
+
+  if (options.scope || !isTopLevelVersionedNavigation(docsConfig.navigation)) {
+    await freezeScopedVersion({
+      docsConfig,
+      docsJsonPath,
+      docsDir,
+      versionsJsonPath,
+      versionsData,
+      options
+    });
+    return;
   }
 
   // Get current version to freeze

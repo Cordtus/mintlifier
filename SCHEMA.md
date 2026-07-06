@@ -54,6 +54,33 @@ Current Mintlify configs require:
 - `seo.metatags`
 - `search.prompt`
 
+## Versioning Metadata
+
+Flat sites can continue using the legacy top-level `versions.json` keys:
+
+- `versions`
+- `currentVersion`
+- `workingVersion`
+- `defaultVersion`
+
+Product-scoped or nested versioning uses `versions.json.scopes`:
+
+```json
+{
+  "versionSchema": 2,
+  "scopes": {
+    "dropdown:api-reference": {
+      "versions": ["v2.3.0"],
+      "currentVersion": "next",
+      "workingVersion": "next",
+      "defaultVersion": "v2.3.0"
+    }
+  }
+}
+```
+
+Use `npx mintlifier versioning` to list scope ids and aliases before running `npx mintlifier freeze --scope <scope>`.
+
 ## Obsolete Fields
 
 Do not generate new configs with these older fields:

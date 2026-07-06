@@ -8,7 +8,7 @@ Interactive CLI for creating and updating Mintlify `docs.json` projects with the
 - Non-interactive starter project generator
 - Current Mintlify theme, appearance, API, navigation, contextual menu, and integrations fields
 - Legacy config normalization for older `mint.json`/early `docs.json` fields
-- Versioning helpers for flat `navigation.versions` projects, with guards for product-scoped versioning
+- Versioning helpers for flat `navigation.versions` projects and product-scoped nested versioning
 
 ## Installation
 
@@ -31,10 +31,17 @@ npx mintlifier versioning
 npx mintlifier freeze
 ```
 
-`freeze` also accepts non-interactive flags for flat versioned sites:
+`freeze` also accepts non-interactive flags:
 
 ```bash
 npx mintlifier freeze --version v1.0.0 --next-version v1.1.0 --automated
+```
+
+For product-scoped or nested versioning, pass the scope shown by `npx mintlifier versioning`:
+
+```bash
+npx mintlifier freeze --scope api-reference --version v2.3.0 --next-version next --automated
+npx mintlifier freeze --scope api-reference --version v2.3.0 --next-version next --dry-run
 ```
 
 ## Quick Start
@@ -110,7 +117,7 @@ For a flat versioned Mintlify site, `navigation.versions` is supported:
 
 The freezer accepts path-safe labels such as `next`, `main`, `v1.0.0`, `v0.53`, and `v8.5.x`.
 
-Product-scoped or nested versioning, such as versions under `navigation.dropdowns[].versions`, is detected but not rewritten by the flat-site freezer. Use the project-specific workflow for those repos until the product-scoped adapter is implemented.
+Product-scoped or nested versioning, such as versions under `navigation.dropdowns[].versions`, is supported by selecting a scope. Mintlifier freezes only the selected scope's pages and navigation node, leaving unrelated products and shared navigation untouched. Scoped metadata is stored under `versions.json.scopes`.
 
 ## Migration Note
 

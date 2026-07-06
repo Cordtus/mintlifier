@@ -22,6 +22,9 @@ on:
       next_version:
         description: 'Next development version (required for freeze/both)'
         required: false
+      version_scope:
+        description: 'Versioned navigation scope for product-scoped docs (optional)'
+        required: false
       source_version:
         description: 'Source version for changelog (default: latest)'
         required: false
@@ -37,6 +40,7 @@ on:
     # - action: 'sync-changelog' | 'freeze-version' | 'both'
     # - release_version: version to freeze (if freezing)
     # - next_version: next development version (if freezing)
+    # - version_scope: versioned navigation scope (optional)
     # - source_version: source for changelog (optional)
   # Trigger on new releases in this repo
   release:
@@ -56,6 +60,7 @@ jobs:
       action: ${{ steps.determine.outputs.action }}
       release_version: ${{ steps.determine.outputs.release_version }}
       next_version: ${{ steps.determine.outputs.next_version }}
+      version_scope: ${{ steps.determine.outputs.version_scope }}
       source_version: ${{ steps.determine.outputs.source_version }}
       source_repo: ${{ steps.determine.outputs.source_repo }}
     
@@ -70,6 +75,7 @@ jobs:
             RELEASE_VERSION="${{ github.event.release.tag_name }}"
             # Generate next version (increment patch by default)
             NEXT_VERSION=$(echo "$RELEASE_VERSION" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+            VERSION_SCOPE=""
             SOURCE_VERSION="$RELEASE_VERSION"
             SOURCE_REPO="${{ github.repository }}"
             
@@ -78,6 +84,7 @@ jobs:
             ACTION="${{ github.event.client_payload.action }}"
             RELEASE_VERSION="${{ github.event.client_payload.release_version }}"
             NEXT_VERSION="${{ github.event.client_payload.next_version }}"
+            VERSION_SCOPE="${{ github.event.client_payload.version_scope }}"
             SOURCE_VERSION="${{ github.event.client_payload.source_version || 'latest' }}"
             SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
             
@@ -86,6 +93,7 @@ jobs:
             ACTION="${{ github.event.inputs.action }}"
             RELEASE_VERSION="${{ github.event.inputs.release_version }}"
             NEXT_VERSION="${{ github.event.inputs.next_version }}"
+            VERSION_SCOPE="${{ github.event.inputs.version_scope }}"
             SOURCE_VERSION="${{ github.event.inputs.source_version || 'latest' }}"
             SOURCE_REPO="${{ github.event.inputs.source_repo }}"
           fi
@@ -112,6 +120,7 @@ jobs:
           echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "version_scope=$VERSION_SCOPE" >> $GITHUB_OUTPUT
           echo "source_version=$SOURCE_VERSION" >> $GITHUB_OUTPUT
           echo "source_repo=$SOURCE_REPO" >> $GITHUB_OUTPUT
           
@@ -120,6 +129,7 @@ jobs:
           echo "  - Action: $ACTION"
           echo "  - Release Version: $RELEASE_VERSION"
           echo "  - Next Version: $NEXT_VERSION"
+          echo "  - Version Scope: ${VERSION_SCOPE:-global navigation}"
           echo "  - Source Version: $SOURCE_VERSION"
           echo "  - Source Repository: $SOURCE_REPO"
 
@@ -217,8 +227,14 @@ jobs:
         run: |
           RELEASE_VERSION="${{ needs.determine-action.outputs.release_version }}"
           NEXT_VERSION="${{ needs.determine-action.outputs.next_version }}"
+          VERSION_SCOPE="${{ needs.determine-action.outputs.version_scope }}"
+          SCOPE_ARGS=()
+          if [ -n "$VERSION_SCOPE" ]; then
+            SCOPE_ARGS=(--scope "$VERSION_SCOPE")
+          fi
 
           npx mintlifier freeze \
+            "${SCOPE_ARGS[@]}" \
             --version "$RELEASE_VERSION" \
             --next-version "$NEXT_VERSION" \
             --automated
@@ -235,6 +251,7 @@ jobs:
             
             - Freeze version ${{ needs.determine-action.outputs.release_version }}
             - Set next development version to ${{ needs.determine-action.outputs.next_version }}
+            - Scope: ${{ needs.determine-action.outputs.version_scope || 'global navigation' }}
             ${{ needs.determine-action.outputs.action == 'both' && '- Update changelog/release notes' || '' }}
           title: ' Release Documentation ${{ needs.determine-action.outputs.release_version }}'
           body: |
@@ -247,6 +264,7 @@ jobs:
             -  Frozen documentation at `/docs/${{ needs.determine-action.outputs.release_version }}/`
             -  Updated version configuration in `docs.json`
             -  Set next development version to `${{ needs.determine-action.outputs.next_version }}`
+            -  Scope: `${{ needs.determine-action.outputs.version_scope || 'global navigation' }}`
             
             ### Review Checklist
             - [ ] Version numbers are correct
@@ -283,6 +301,7 @@ jobs:
             echo "###  Version Freeze" >> $GITHUB_STEP_SUMMARY
             echo "- Frozen: \`${{ needs.determine-action.outputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
             echo "- Next: \`${{ needs.determine-action.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Scope: \`${{ needs.determine-action.outputs.version_scope || 'global navigation' }}\`" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
