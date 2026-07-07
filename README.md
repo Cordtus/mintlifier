@@ -132,6 +132,10 @@ npm test
 
 `npm test` runs deterministic Node tests for schema normalization and versioning detection.
 
+## Releases
+
+Publishing is handled by GitHub Releases. Create a release tag that matches `package.json`, such as `v2.1.1`; the `Publish npm package` workflow verifies the tag, runs tests, previews the package contents, and publishes to npm using npm trusted publishing.
+
 ## References
 
 - Mintlify docs: https://www.mintlify.com/docs
