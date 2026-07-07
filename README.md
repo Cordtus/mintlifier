@@ -136,6 +136,13 @@ npm test
 
 Publishing is handled by GitHub Releases. Create a release tag that matches `package.json`, such as `v2.1.1`; the `Publish npm package` workflow verifies the tag, runs tests, previews the package contents, and publishes to npm using npm trusted publishing.
 
+Before the first automated publish, configure one npm authentication path:
+
+- Preferred: add an npm trusted publisher for package `mintlifier` that points at `Cordtus/mintlifier` and `.github/workflows/publish-npm.yml`.
+- Fallback: add a repository Actions secret named `NPM_TOKEN` with an npm automation token.
+
+If the workflow or package metadata changes after a failed release, bump `package.json` and create a new release. GitHub release workflows run from the workflow file committed at the release tag.
+
 ## References
 
 - Mintlify docs: https://www.mintlify.com/docs
