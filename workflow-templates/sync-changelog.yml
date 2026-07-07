@@ -1,27 +1,32 @@
-# Workflow: Sync Changelog from Source Repository
-# This workflow syncs release notes from your source repository to documentation
-# It creates a PR for review rather than directly committing changes
+# Workflow: Backfill Changelog From External Repository
+# Active optional template. Mintlify has native changelog pages and Automations
+# for drafting new updates, but this workflow preserves Mintlifier's historical
+# CHANGELOG.md import/backfill path for repositories that already maintain
+# release notes in several common markdown formats.
 
-name: Sync Changelog
+name: Backfill Changelog
 
 on:
-  # Manual trigger
   workflow_dispatch:
     inputs:
       source_version:
-        description: 'Source version/tag to sync (leave empty for latest)'
+        description: 'Source version, tag, or branch to import. Use latest for the latest GitHub release.'
         required: false
         default: 'latest'
       source_repo:
-        description: 'Source repository containing the changelog (owner/repo)'
+        description: 'Source repository containing the changelog, such as owner/repo'
         required: false
-      
-  # External repository trigger
+      run_mintlify_checks:
+        description: 'Run supplemental native Mintlify validation after import'
+        type: boolean
+        default: false
+
   repository_dispatch:
     types: [sync-changelog]
-    # Payload should include:
-    # - source_version: version/tag to sync (optional)
-    # - source_repo: owner/repo (optional, uses default if not provided)
+    # Payload:
+    # - source_version: version, tag, branch, or "latest"
+    # - source_repo: source repository containing CHANGELOG.md, CHANGES.md, or HISTORY.md
+    # - run_mintlify_checks: "true" or "false", defaults to "false"
 
 env:
   CHANGELOG_SOURCE_REPO: ${{ vars.CHANGELOG_SOURCE_REPO }}
@@ -31,11 +36,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  sync-changelog:
+  backfill-changelog:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout repository
+      - name: Checkout documentation repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -45,77 +50,101 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Determine source
-        id: version
+      - name: Determine changelog source
+        id: source
+        shell: bash
         run: |
+          set -euo pipefail
+
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            VERSION="${{ github.event.client_payload.source_version || 'latest' }}"
+            SOURCE_VERSION="${{ github.event.client_payload.source_version }}"
             SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
+            RUN_MINTLIFY_CHECKS="${{ github.event.client_payload.run_mintlify_checks }}"
           else
-            VERSION="${{ github.event.inputs.source_version || 'latest' }}"
+            SOURCE_VERSION="${{ github.event.inputs.source_version }}"
             SOURCE_REPO="${{ github.event.inputs.source_repo }}"
+            RUN_MINTLIFY_CHECKS="${{ github.event.inputs.run_mintlify_checks }}"
           fi
 
-          if [ -z "$SOURCE_REPO" ]; then
-            SOURCE_REPO="${CHANGELOG_SOURCE_REPO:-}"
-          fi
+          SOURCE_VERSION="${SOURCE_VERSION:-latest}"
+          SOURCE_REPO="${SOURCE_REPO:-${CHANGELOG_SOURCE_REPO:-}}"
+          RUN_MINTLIFY_CHECKS="${RUN_MINTLIFY_CHECKS:-false}"
 
           if [ -z "$SOURCE_REPO" ]; then
-            echo "Error: source_repo is required, or set repository variable CHANGELOG_SOURCE_REPO"
+            echo "source_repo is required, or set the CHANGELOG_SOURCE_REPO repository variable" >&2
             exit 1
           fi
 
-          echo "source_version=$VERSION" >> $GITHUB_OUTPUT
-          echo "source_repo=$SOURCE_REPO" >> $GITHUB_OUTPUT
-
-      - name: Sync changelog
-        id: sync
-        run: |
-          ./scripts/refresh-changelog.sh \
-            "${{ steps.version.outputs.source_repo }}" \
-            "${{ steps.version.outputs.source_version }}"
-          
-          # Check if there are changes
-          if [ -n "$(git status --porcelain docs/changelog/)" ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            
-            # Count versions in changelog
-            VERSION_COUNT=$(grep -c '<Update' docs/changelog/release-notes.mdx || echo "0")
-            echo "version_count=$VERSION_COUNT" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+          if [ "$RUN_MINTLIFY_CHECKS" != "true" ] && [ "$RUN_MINTLIFY_CHECKS" != "false" ]; then
+            echo "run_mintlify_checks must be true or false" >&2
+            exit 1
           fi
 
-      - name: Create Pull Request
-        if: steps.sync.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v5
+          SAFE_SOURCE="$(printf '%s' "$SOURCE_VERSION" | tr -c 'A-Za-z0-9._-' '-')"
+
+          {
+            echo "source_version=$SOURCE_VERSION"
+            echo "source_repo=$SOURCE_REPO"
+            echo "safe_source=$SAFE_SOURCE"
+            echo "run_mintlify_checks=$RUN_MINTLIFY_CHECKS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Import changelog
+        id: import
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ./scripts/refresh-changelog.sh \
+            "${{ steps.source.outputs.source_repo }}" \
+            "${{ steps.source.outputs.source_version }}"
+
+          if [ -n "$(git status --porcelain docs/changelog/release-notes.mdx)" ]; then
+            VERSION_COUNT="$(grep -c '<Update' docs/changelog/release-notes.mdx || true)"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "version_count=$VERSION_COUNT" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "version_count=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run supplemental native Mintlify checks
+        if: steps.import.outputs.has_changes == 'true' && steps.source.outputs.run_mintlify_checks == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes mint@latest validate
+          npx --yes mint@latest broken-links
+
+      - name: Create pull request
+        if: steps.import.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'docs: sync changelog from ${{ steps.version.outputs.source_version }}'
-          title: ' Update Release Notes from ${{ steps.version.outputs.source_version }}'
+          commit-message: 'docs: import changelog from ${{ steps.source.outputs.source_repo }} ${{ steps.source.outputs.source_version }}'
+          title: 'Import changelog from ${{ steps.source.outputs.source_repo }}'
           body: |
-            ##  Changelog Sync
-            
-            This PR updates the release notes from source version: **${{ steps.version.outputs.source_version }}**
-            
+            ## Changelog Import
+
+            This PR imports historical release notes from `${{ steps.source.outputs.source_repo }}` at `${{ steps.source.outputs.source_version }}`.
+
             ### Changes
-            - Updated `docs/changelog/release-notes.mdx`
-            - Synced **${{ steps.sync.outputs.version_count }}** versions
-            
-            ### Source
-            - Repository: `${{ steps.version.outputs.source_repo }}`
-            - Version/Tag: `${{ steps.version.outputs.source_version }}`
-            - Triggered by: ${{ github.event_name }}
-            
+            - Updated `docs/changelog/release-notes.mdx`.
+            - Generated `${{ steps.import.outputs.version_count }}` Mintlify `Update` entries.
+            - Used Mintlifier's CHANGELOG.md parser for common historical changelog structures.
+
+            ### Native Mintlify Platform Notes
+            - Mintlify changelog pages and Automations are preferred for new changelog drafting.
+            - This workflow is for historical import/backfill from existing markdown changelogs.
+            - Native Mintlify validation was `${{ steps.source.outputs.run_mintlify_checks }}` for this run.
+
             ### Review Checklist
-            - [ ] Release notes are properly formatted
-            - [ ] Version numbers are correct
-            - [ ] No sensitive information included
-            - [ ] Links and references are valid
-            
-            ---
-            *This PR was automatically generated by the changelog sync workflow.*
-          branch: changelog-sync-${{ steps.version.outputs.source_version }}
+            - [ ] Imported version list is complete.
+            - [ ] Category mapping is correct.
+            - [ ] Release-note wording still reads correctly after conversion.
+            - [ ] Links and issue references are acceptable.
+            - [ ] Supplemental native Mintlify checks passed or were intentionally skipped.
+          branch: mintlifier-changelog-${{ steps.source.outputs.safe_source }}
           delete-branch: true
           labels: |
             documentation
@@ -125,19 +154,15 @@ jobs:
           reviewers: ${{ github.actor }}
 
       - name: Summary
+        if: always()
+        shell: bash
         run: |
-          echo "##  Changelog Sync Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [[ "${{ steps.sync.outputs.has_changes }}" == "true" ]]; then
-            echo " **Successfully synced changelog**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- Repository: \`${{ steps.version.outputs.source_repo }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Source: \`${{ steps.version.outputs.source_version }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Versions synced: ${{ steps.sync.outputs.version_count }}" >> $GITHUB_STEP_SUMMARY
-            echo "- Pull Request created for review" >> $GITHUB_STEP_SUMMARY
-          else
-            echo " **No changes detected**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Changelog is already up to date with \`${{ steps.version.outputs.source_version }}\`" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "## Changelog Import Summary"
+            echo ""
+            echo "- Source repository: \`${{ steps.source.outputs.source_repo }}\`"
+            echo "- Source version: \`${{ steps.source.outputs.source_version }}\`"
+            echo "- Imported versions: \`${{ steps.import.outputs.version_count || '0' }}\`"
+            echo "- Changes detected: \`${{ steps.import.outputs.has_changes || 'false' }}\`"
+            echo "- Supplemental Mintlify checks: \`${{ steps.source.outputs.run_mintlify_checks }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

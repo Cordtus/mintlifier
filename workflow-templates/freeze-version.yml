@@ -1,42 +1,39 @@
-# Workflow: Freeze Documentation Version
-# This workflow freezes the current documentation at a specific version
-# It creates a PR for review rather than directly committing changes
+# Workflow: Freeze Mintlifier Version Snapshot
+# Active template. Mintlify now owns deployments, preview builds, CI checks,
+# changelog drafting, and general content-maintenance automations. This workflow
+# only runs Mintlifier's filesystem version-freeze operation, which is still
+# unique to this tool.
 
-name: Freeze Version
+name: Freeze Mintlifier Version Snapshot
 
 on:
-  # Manual trigger
   workflow_dispatch:
     inputs:
       release_version:
-        description: 'Version to freeze (e.g., v1.0.0)'
+        description: 'Version label to freeze, such as v1.0.0, v0.53, or v8.5.x'
         required: true
       next_version:
-        description: 'Next development version (e.g., v1.1.0)'
-        required: true
+        description: 'Next development version label'
+        required: false
+        default: 'next'
       version_scope:
-        description: 'Versioned navigation scope for product-scoped docs (optional)'
+        description: 'Versioned navigation scope for product-scoped docs'
         required: false
-      source_repo:
-        description: 'Source repository containing the changelog (owner/repo)'
-        required: false
-      update_changelog:
-        description: 'Update changelog before freezing'
+      run_mintlify_checks:
+        description: 'Run supplemental native Mintlify validation after freezing'
         type: boolean
-        default: true
-        
-  # External repository trigger
+        default: false
+
   repository_dispatch:
     types: [freeze-version]
-    # Payload should include:
-    # - release_version: version to freeze
-    # - next_version: next development version
-    # - version_scope: versioned navigation scope (optional)
-    # - update_changelog: boolean (optional, default true)
-    # - source_repo: owner/repo for changelog sync (if update_changelog is true)
+    # Payload:
+    # - release_version: version label to freeze
+    # - next_version: next development version label, defaults to "next"
+    # - version_scope: versioned navigation scope for product-scoped docs
+    # - run_mintlify_checks: "true" or "false", defaults to "false"
 
 env:
-  CHANGELOG_SOURCE_REPO: ${{ vars.CHANGELOG_SOURCE_REPO }}
+  MINTLIFIER_PACKAGE: mintlifier@latest
 
 permissions:
   contents: write
@@ -45,9 +42,9 @@ permissions:
 jobs:
   freeze-version:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout repository
+      - name: Checkout documentation repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -57,128 +54,115 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Determine versions
-        id: versions
+      - name: Determine freeze inputs
+        id: inputs
+        shell: bash
         run: |
+          set -euo pipefail
+
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            RELEASE="${{ github.event.client_payload.release_version }}"
-            NEXT="${{ github.event.client_payload.next_version }}"
+            RELEASE_VERSION="${{ github.event.client_payload.release_version }}"
+            NEXT_VERSION="${{ github.event.client_payload.next_version }}"
             VERSION_SCOPE="${{ github.event.client_payload.version_scope }}"
-            UPDATE_CHANGELOG="${{ github.event.client_payload.update_changelog }}"
-            SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
+            RUN_MINTLIFY_CHECKS="${{ github.event.client_payload.run_mintlify_checks }}"
           else
-            RELEASE="${{ github.event.inputs.release_version }}"
-            NEXT="${{ github.event.inputs.next_version }}"
+            RELEASE_VERSION="${{ github.event.inputs.release_version }}"
+            NEXT_VERSION="${{ github.event.inputs.next_version }}"
             VERSION_SCOPE="${{ github.event.inputs.version_scope }}"
-            UPDATE_CHANGELOG="${{ github.event.inputs.update_changelog }}"
-            SOURCE_REPO="${{ github.event.inputs.source_repo }}"
-          fi
-          
-          # Default update_changelog to true if not specified
-          if [ -z "$UPDATE_CHANGELOG" ]; then
-            UPDATE_CHANGELOG="true"
+            RUN_MINTLIFY_CHECKS="${{ github.event.inputs.run_mintlify_checks }}"
           fi
 
-          if [ -z "$SOURCE_REPO" ]; then
-            SOURCE_REPO="${CHANGELOG_SOURCE_REPO:-}"
-          fi
-          
-          echo "release_version=$RELEASE" >> $GITHUB_OUTPUT
-          echo "next_version=$NEXT" >> $GITHUB_OUTPUT
-          echo "version_scope=$VERSION_SCOPE" >> $GITHUB_OUTPUT
-          echo "update_changelog=$UPDATE_CHANGELOG" >> $GITHUB_OUTPUT
-          echo "source_repo=$SOURCE_REPO" >> $GITHUB_OUTPUT
+          NEXT_VERSION="${NEXT_VERSION:-next}"
+          RUN_MINTLIFY_CHECKS="${RUN_MINTLIFY_CHECKS:-false}"
 
-      - name: Check if version already frozen
-        id: check_frozen
-        run: |
-          if [ -d "docs/${{ steps.versions.outputs.release_version }}" ]; then
-            echo "already_frozen=true" >> $GITHUB_OUTPUT
-            echo " Version ${{ steps.versions.outputs.release_version }} is already frozen" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          else
-            echo "already_frozen=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Update changelog (if requested)
-        if: steps.check_frozen.outputs.already_frozen == 'false' && steps.versions.outputs.update_changelog == 'true'
-        run: |
-          if [ -z "${{ steps.versions.outputs.source_repo }}" ]; then
-            echo "Error: source_repo is required when update_changelog is true, or set repository variable CHANGELOG_SOURCE_REPO"
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "release_version is required" >&2
             exit 1
           fi
 
-          echo " Updating changelog from latest release..."
-          ./scripts/refresh-changelog.sh \
-            "${{ steps.versions.outputs.source_repo }}" \
-            "${{ steps.versions.outputs.release_version }}"
-
-      - name: Freeze version
-        if: steps.check_frozen.outputs.already_frozen == 'false'
-        id: freeze
-        run: |
-          SCOPE_ARGS=()
-          if [ -n "${{ steps.versions.outputs.version_scope }}" ]; then
-            SCOPE_ARGS=(--scope "${{ steps.versions.outputs.version_scope }}")
+          if [ "$RUN_MINTLIFY_CHECKS" != "true" ] && [ "$RUN_MINTLIFY_CHECKS" != "false" ]; then
+            echo "run_mintlify_checks must be true or false" >&2
+            exit 1
           fi
 
-          npx mintlifier freeze \
-            "${SCOPE_ARGS[@]}" \
-            --version "${{ steps.versions.outputs.release_version }}" \
-            --next-version "${{ steps.versions.outputs.next_version }}" \
-            --automated
-          echo "frozen=true" >> $GITHUB_OUTPUT
-          echo " Version ${{ steps.versions.outputs.release_version }} frozen successfully"
+          SAFE_VERSION="$(printf '%s' "$RELEASE_VERSION" | tr -c 'A-Za-z0-9._-' '-')"
+          if [ -n "$VERSION_SCOPE" ]; then
+            SCOPE_LABEL="$VERSION_SCOPE"
+          else
+            SCOPE_LABEL="global navigation"
+          fi
 
-      - name: Create Pull Request
-        if: steps.check_frozen.outputs.already_frozen == 'false'
-        uses: peter-evans/create-pull-request@v5
+          {
+            echo "release_version=$RELEASE_VERSION"
+            echo "next_version=$NEXT_VERSION"
+            echo "version_scope=$VERSION_SCOPE"
+            echo "scope_label=$SCOPE_LABEL"
+            echo "safe_version=$SAFE_VERSION"
+            echo "run_mintlify_checks=$RUN_MINTLIFY_CHECKS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Freeze documentation version
+        id: freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SCOPE_ARGS=()
+          if [ -n "${{ steps.inputs.outputs.version_scope }}" ]; then
+            SCOPE_ARGS=(--scope "${{ steps.inputs.outputs.version_scope }}")
+          fi
+
+          npx --yes "$MINTLIFIER_PACKAGE" freeze \
+            "${SCOPE_ARGS[@]}" \
+            --version "${{ steps.inputs.outputs.release_version }}" \
+            --next-version "${{ steps.inputs.outputs.next_version }}" \
+            --automated
+
+          echo "frozen=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run supplemental native Mintlify checks
+        if: steps.inputs.outputs.run_mintlify_checks == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes mint@latest validate
+          npx --yes mint@latest broken-links
+
+      - name: Create pull request
+        if: steps.freeze.outputs.frozen == 'true'
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: |
-            docs: freeze version ${{ steps.versions.outputs.release_version }}
-            
-            - Frozen documentation at version ${{ steps.versions.outputs.release_version }}
-            - Set next development version to ${{ steps.versions.outputs.next_version }}
-            - Scope: ${{ steps.versions.outputs.version_scope || 'global navigation' }}
-            - Updated docs.json with version configuration
-          title: ' Freeze Version ${{ steps.versions.outputs.release_version }}'
+            docs: freeze ${{ steps.inputs.outputs.release_version }}
+
+            - Freeze documentation at ${{ steps.inputs.outputs.release_version }}
+            - Set next development version to ${{ steps.inputs.outputs.next_version }}
+            - Scope: ${{ steps.inputs.outputs.scope_label }}
+          title: 'Freeze docs ${{ steps.inputs.outputs.release_version }}'
           body: |
-            ##  Version Freeze
-            
-            This PR freezes the documentation at version **${{ steps.versions.outputs.release_version }}** and prepares for **${{ steps.versions.outputs.next_version }}** development.
-            
+            ## Version Freeze
+
+            This PR freezes documentation at `${{ steps.inputs.outputs.release_version }}` and prepares `${{ steps.inputs.outputs.next_version }}` for continued development.
+
             ### Changes
-            -  Created frozen documentation at `/docs/${{ steps.versions.outputs.release_version }}/`
-            -  Updated all internal links in frozen version
-            -  Updated `docs.json` with version configuration
-            -  Set next development version to `${{ steps.versions.outputs.next_version }}`
-            -  Scope: `${{ steps.versions.outputs.version_scope || 'global navigation' }}`
-            ${{ steps.versions.outputs.update_changelog == 'true' && '-  Updated changelog/release notes' || '' }}
-            
-            ### Version Information
-            - **Frozen Version**: `${{ steps.versions.outputs.release_version }}`
-            - **Next Version**: `${{ steps.versions.outputs.next_version }}`
-            - **Scope**: `${{ steps.versions.outputs.version_scope || 'global navigation' }}`
-            - **Freeze Date**: $(date '+%Y-%m-%d')
-            
+            - Created a frozen documentation snapshot through Mintlifier.
+            - Updated `docs.json` navigation for the frozen version.
+            - Updated `versions.json` metadata where applicable.
+            - Scope: `${{ steps.inputs.outputs.scope_label }}`
+
+            ### Native Mintlify Platform Notes
+            - Mintlify GitHub App deployments and preview builds should handle publishing after merge.
+            - Mintlify CI checks can cover hosted lint/build checks.
+            - Mintlify Automations should handle changelog drafting and recurring content maintenance.
+
             ### Review Checklist
-            - [ ] Version numbers are correct
-            - [ ] Documentation is properly frozen
-            - [ ] Internal links are updated correctly
-            - [ ] Release notes are correct if changelog sync was enabled
-            - [ ] docs.json configuration is valid
-            - [ ] No unintended files included
-            
-            ### Next Steps
-            After merging this PR:
-            1. The frozen version will be available at `/docs/${{ steps.versions.outputs.release_version }}/`
-            2. Continue development for version `${{ steps.versions.outputs.next_version }}`
-            3. Users can switch between versions using the version selector
-            
-            ---
-            *This PR was automatically generated by the version freeze workflow.*
-          branch: freeze-version-${{ steps.versions.outputs.release_version }}
+            - [ ] Version labels are correct.
+            - [ ] Frozen docs render in the expected version selector or product scope.
+            - [ ] Internal links in frozen docs point at the frozen version.
+            - [ ] Supplemental native Mintlify checks passed or were intentionally skipped.
+            - [ ] No unrelated files are included.
+          branch: mintlifier-freeze-${{ steps.inputs.outputs.safe_version }}
           delete-branch: true
           labels: |
             documentation
@@ -188,28 +172,15 @@ jobs:
           reviewers: ${{ github.actor }}
 
       - name: Summary
+        if: always()
+        shell: bash
         run: |
-          echo "##  Version Freeze Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [[ "${{ steps.check_frozen.outputs.already_frozen }}" == "true" ]]; then
-            echo " **Version already frozen**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Version \`${{ steps.versions.outputs.release_version }}\` has already been frozen." >> $GITHUB_STEP_SUMMARY
-            echo "No action was taken." >> $GITHUB_STEP_SUMMARY
-          elif [[ "${{ steps.freeze.outputs.frozen }}" == "true" ]]; then
-            echo " **Successfully froze version**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- Frozen version: \`${{ steps.versions.outputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Next development: \`${{ steps.versions.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Changelog updated: ${{ steps.versions.outputs.update_changelog }}" >> $GITHUB_STEP_SUMMARY
-            echo "- Changelog source: \`${{ steps.versions.outputs.source_repo }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- Pull Request created for review" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The frozen documentation will be available at:" >> $GITHUB_STEP_SUMMARY
-            echo "\`/docs/${{ steps.versions.outputs.release_version }}/\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo " **Version freeze failed**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Please check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "## Mintlifier Version Freeze Summary"
+            echo ""
+            echo "- Frozen version: \`${{ steps.inputs.outputs.release_version }}\`"
+            echo "- Next development version: \`${{ steps.inputs.outputs.next_version }}\`"
+            echo "- Scope: \`${{ steps.inputs.outputs.scope_label }}\`"
+            echo "- Supplemental native Mintlify checks: \`${{ steps.inputs.outputs.run_mintlify_checks }}\`"
+            echo "- Pull request branch: \`mintlifier-freeze-${{ steps.inputs.outputs.safe_version }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

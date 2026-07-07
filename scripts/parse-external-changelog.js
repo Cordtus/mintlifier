@@ -7,10 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Get repository and source from command line arguments
-const [,, repo, source] = process.argv;
-
-function parseExternalChangelog(content, repo, source) {
+export function parseExternalChangelog(content) {
   const lines = content.split('\n');
   const versions = [];
   let currentVersion = null;
@@ -59,6 +56,23 @@ function parseExternalChangelog(content, repo, source) {
       continue;
     }
 
+    // Skip UNRELEASED section before matching broad version headings.
+    if (trimmedLine.match(/^##\s+(?:\[)?(?:UNRELEASED|Unreleased|Next)(?:\])?/i)) {
+      // Save previous version before skipping
+      if (currentVersion && Object.keys(categories).some(cat => categories[cat] && categories[cat].length > 0)) {
+        versions.push({
+          version: currentVersion,
+          date: currentDate || new Date().toISOString().split('T')[0],
+          categories: { ...categories }
+        });
+      }
+
+      currentVersion = null;
+      categories = {};
+      currentCategory = null;
+      continue;
+    }
+
     // Match version headers - various formats
     // ## v0.4.1
     // ## [v0.4.1] - 2024-10-11
@@ -84,22 +98,6 @@ function parseExternalChangelog(content, repo, source) {
       
       currentDate = versionMatch[2] || null;
 
-      categories = {};
-      currentCategory = null;
-      continue;
-    }
-
-    // Skip UNRELEASED section
-    if (trimmedLine.match(/^##\s+(UNRELEASED|Unreleased|Next)/i)) {
-      // Save previous version before skipping
-      if (currentVersion && Object.keys(categories).some(cat => categories[cat] && categories[cat].length > 0)) {
-        versions.push({
-          version: currentVersion,
-          date: currentDate || new Date().toISOString().split('T')[0],
-          categories: { ...categories }
-        });
-      }
-      currentVersion = null;
       categories = {};
       currentCategory = null;
       continue;
@@ -160,7 +158,7 @@ function parseExternalChangelog(content, repo, source) {
   return versions;
 }
 
-function generateMintlifyMDX(versions, repo, source) {
+export function generateMintlifyMDX(versions, repo, source) {
   let mdx = `---
 title: Release Notes
 description: Changelog and version history
@@ -241,7 +239,9 @@ import Update from '/snippets/update.mdx'
 }
 
 // Main execution
-async function main() {
+async function main(args = process.argv.slice(2)) {
+  const [repo, source] = args;
+
   try {
     // Read the changelog
     const changelogPath = path.join(__dirname, '..', 'tmp', 'changelog.md');
@@ -253,7 +253,7 @@ async function main() {
     const content = await fs.readFile(changelogPath, 'utf8');
     
     // Parse the changelog
-    const versions = parseExternalChangelog(content, repo, source);
+    const versions = parseExternalChangelog(content);
     
     if (versions.length === 0) {
       console.warn('No versions found in changelog');
@@ -275,4 +275,6 @@ async function main() {
   }
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  main();
+}

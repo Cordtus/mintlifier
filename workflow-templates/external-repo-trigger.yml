@@ -1,231 +1,142 @@
 # External Repository Workflow Template
-# Deploy this workflow in your source/project repository to trigger documentation updates
-# in your separate documentation repository
+# Deploy this workflow in a source/project repository only when that repository
+# needs to trigger Mintlifier's version-freeze workflow in a separate docs repo.
+# For changelog drafting, source-code maintenance, and content updates, prefer
+# native Mintlify Automations connected to the source repository.
 
-name: Trigger Documentation Update
+name: Trigger Mintlifier Version Freeze
 
 on:
-  # Trigger on new releases
   release:
     types: [published]
-  
-  # Manual trigger with options
+
   workflow_dispatch:
     inputs:
-      action:
-        description: 'Documentation action to trigger'
-        required: true
-        type: choice
-        options:
-          - 'sync-changelog'
-          - 'freeze-version'
-          - 'both'
       release_version:
-        description: 'Version to freeze (required for freeze/both)'
+        description: 'Version label to freeze. Defaults to the release tag for release events.'
         required: false
       next_version:
-        description: 'Next development version (auto-generated if not provided)'
+        description: 'Next development version label'
         required: false
+        default: 'next'
       version_scope:
-        description: 'Versioned navigation scope for product-scoped docs (optional)'
+        description: 'Versioned navigation scope for product-scoped docs'
         required: false
       docs_repo:
-        description: 'Documentation repository (owner/repo)'
+        description: 'Documentation repository, such as owner/docs'
         required: false
-        default: 'YOUR_ORG/YOUR_DOCS_REPO'  # Update this default
+      run_mintlify_checks:
+        description: 'Ask the docs workflow to run supplemental native Mintlify validation'
+        type: boolean
+        default: false
 
 env:
-  # Configure your documentation repository here
-  DOCS_REPO: ${{ github.event.inputs.docs_repo || 'YOUR_ORG/YOUR_DOCS_REPO' }}
-  # You need to create a PAT with repo scope and add it as a secret
   DOCS_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
 
 jobs:
-  trigger-docs-update:
+  trigger-version-freeze:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Determine parameters
-        id: params
+      - name: Determine trigger inputs
+        id: inputs
+        shell: bash
         run: |
-          # Determine action based on trigger
+          set -euo pipefail
+
           if [ "${{ github.event_name }}" = "release" ]; then
-            ACTION="both"
             RELEASE_VERSION="${{ github.event.release.tag_name }}"
-            VERSION_SCOPE=""
-            # Auto-generate next version (increment patch)
-            NEXT_VERSION=$(echo "$RELEASE_VERSION" | awk -F. '{
-              if (NF==3) {
-                $NF = $NF + 1;
-                print $1"."$2"."$3
-              } else {
-                print $0"-next"
-              }
-            }')
+            NEXT_VERSION="${{ vars.MINTLIFIER_NEXT_VERSION || 'next' }}"
+            VERSION_SCOPE="${{ vars.MINTLIFIER_VERSION_SCOPE }}"
+            DOCS_REPO="${{ vars.MINTLIFIER_DOCS_REPO }}"
+            RUN_MINTLIFY_CHECKS="${{ vars.MINTLIFIER_RUN_MINTLIFY_CHECKS || 'false' }}"
           else
-            ACTION="${{ github.event.inputs.action }}"
             RELEASE_VERSION="${{ github.event.inputs.release_version }}"
             NEXT_VERSION="${{ github.event.inputs.next_version }}"
             VERSION_SCOPE="${{ github.event.inputs.version_scope }}"
-            
-            # Auto-generate next version if not provided but needed
-            if [[ "$ACTION" == "freeze-version" || "$ACTION" == "both" ]]; then
-              if [ -z "$NEXT_VERSION" ] && [ -n "$RELEASE_VERSION" ]; then
-                NEXT_VERSION=$(echo "$RELEASE_VERSION" | awk -F. '{
-                  if (NF==3) {
-                    $NF = $NF + 1;
-                    print $1"."$2"."$3
-                  } else {
-                    print $0"-next"
-                  }
-                }')
-              fi
-            fi
+            DOCS_REPO="${{ github.event.inputs.docs_repo || vars.MINTLIFIER_DOCS_REPO }}"
+            RUN_MINTLIFY_CHECKS="${{ github.event.inputs.run_mintlify_checks }}"
           fi
-          
-          echo "action=$ACTION" >> $GITHUB_OUTPUT
-          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
-          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-          echo "version_scope=$VERSION_SCOPE" >> $GITHUB_OUTPUT
-          
-          # Log parameters
-          echo " Documentation Update Parameters:"
-          echo "  - Repository: ${{ env.DOCS_REPO }}"
-          echo "  - Action: $ACTION"
-          echo "  - Release Version: $RELEASE_VERSION"
-          echo "  - Next Version: $NEXT_VERSION"
-          echo "  - Source Repository: ${{ github.repository }}"
 
-      - name: Validate parameters
-        run: |
-          # Check if token is configured
-          if [ -z "${{ env.DOCS_TOKEN }}" ]; then
-            echo " Error: DOCS_REPO_TOKEN secret is not configured"
-            echo "Please create a Personal Access Token with 'repo' scope and add it as a secret"
+          NEXT_VERSION="${NEXT_VERSION:-next}"
+          RUN_MINTLIFY_CHECKS="${RUN_MINTLIFY_CHECKS:-false}"
+
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "release_version is required for manual runs" >&2
             exit 1
           fi
-          
-          # Check if docs repo is configured
-          if [[ "${{ env.DOCS_REPO }}" == *"YOUR_"* ]]; then
-            echo " Error: Documentation repository is not configured"
-            echo "Please update the DOCS_REPO environment variable with your documentation repository"
+
+          if [ -z "$DOCS_REPO" ]; then
+            echo "docs_repo is required. Set the MINTLIFIER_DOCS_REPO repository variable or provide the manual input." >&2
             exit 1
           fi
-          
-          # Validate required parameters for version freezing
-          ACTION="${{ steps.params.outputs.action }}"
-          if [[ "$ACTION" == "freeze-version" || "$ACTION" == "both" ]]; then
-            if [ -z "${{ steps.params.outputs.release_version }}" ] || [ -z "${{ steps.params.outputs.next_version }}" ]; then
-              echo " Error: release_version and next_version are required for version freezing"
-              exit 1
-            fi
+
+          if [ -z "$DOCS_TOKEN" ]; then
+            echo "DOCS_REPO_TOKEN is required. Create a token with permission to dispatch workflows in $DOCS_REPO." >&2
+            exit 1
           fi
 
-      - name: Trigger changelog sync
-        if: steps.params.outputs.action == 'sync-changelog'
-        run: |
-          echo " Triggering changelog sync in ${{ env.DOCS_REPO }}..."
-          
-          curl -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ env.DOCS_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ env.DOCS_REPO }}/dispatches \
-            -d '{
-              "event_type": "sync-changelog",
-              "client_payload": {
-                "source_version": "${{ steps.params.outputs.release_version || 'latest' }}",
-                "source_repo": "${{ github.repository }}",
-                "triggered_by": "${{ github.actor }}",
-                "trigger_workflow": "${{ github.workflow }}",
-                "trigger_run": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-              }
-            }'
-          
-          echo " Changelog sync triggered successfully"
+          if [ "$RUN_MINTLIFY_CHECKS" != "true" ] && [ "$RUN_MINTLIFY_CHECKS" != "false" ]; then
+            echo "run_mintlify_checks must be true or false" >&2
+            exit 1
+          fi
 
-      - name: Trigger version freeze
-        if: steps.params.outputs.action == 'freeze-version'
-        run: |
-          echo " Triggering version freeze in ${{ env.DOCS_REPO }}..."
-          
-          curl -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ env.DOCS_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ env.DOCS_REPO }}/dispatches \
-            -d '{
-              "event_type": "freeze-version",
-              "client_payload": {
-                "release_version": "${{ steps.params.outputs.release_version }}",
-                "next_version": "${{ steps.params.outputs.next_version }}",
-                "version_scope": "${{ steps.params.outputs.version_scope }}",
-                "update_changelog": false,
-                "source_repo": "${{ github.repository }}",
-                "triggered_by": "${{ github.actor }}",
-                "trigger_workflow": "${{ github.workflow }}",
-                "trigger_run": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-              }
-            }'
-          
-          echo " Version freeze triggered successfully"
+          {
+            echo "release_version=$RELEASE_VERSION"
+            echo "next_version=$NEXT_VERSION"
+            echo "version_scope=$VERSION_SCOPE"
+            echo "docs_repo=$DOCS_REPO"
+            echo "run_mintlify_checks=$RUN_MINTLIFY_CHECKS"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Trigger combined update
-        if: steps.params.outputs.action == 'both'
+      - name: Dispatch docs repository freeze workflow
+        shell: bash
         run: |
-          echo " Triggering full documentation update in ${{ env.DOCS_REPO }}..."
-          
-          curl -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ env.DOCS_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ env.DOCS_REPO }}/dispatches \
-            -d '{
-              "event_type": "docs-automation",
-              "client_payload": {
-                "action": "both",
-                "release_version": "${{ steps.params.outputs.release_version }}",
-                "next_version": "${{ steps.params.outputs.next_version }}",
-                "version_scope": "${{ steps.params.outputs.version_scope }}",
-                "source_version": "${{ steps.params.outputs.release_version }}",
-                "source_repo": "${{ github.repository }}",
-                "triggered_by": "${{ github.actor }}",
-                "trigger_workflow": "${{ github.workflow }}",
-                "trigger_run": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          set -euo pipefail
+
+          PAYLOAD="$(jq -n \
+            --arg release_version "${{ steps.inputs.outputs.release_version }}" \
+            --arg next_version "${{ steps.inputs.outputs.next_version }}" \
+            --arg version_scope "${{ steps.inputs.outputs.version_scope }}" \
+            --arg run_mintlify_checks "${{ steps.inputs.outputs.run_mintlify_checks }}" \
+            --arg source_repo "${{ github.repository }}" \
+            --arg triggered_by "${{ github.actor }}" \
+            --arg trigger_workflow "${{ github.workflow }}" \
+            --arg trigger_run "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              event_type: "freeze-version",
+              client_payload: {
+                release_version: $release_version,
+                next_version: $next_version,
+                version_scope: $version_scope,
+                run_mintlify_checks: $run_mintlify_checks,
+                source_repo: $source_repo,
+                triggered_by: $triggered_by,
+                trigger_workflow: $trigger_workflow,
+                trigger_run: $trigger_run
               }
-            }'
-          
-          echo " Documentation update triggered successfully"
+            }')"
+
+          curl --fail-with-body -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $DOCS_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ steps.inputs.outputs.docs_repo }}/dispatches" \
+            -d "$PAYLOAD"
 
       - name: Summary
         if: always()
+        shell: bash
         run: |
-          echo "##  Documentation Trigger Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- **Documentation Repository**: \`${{ env.DOCS_REPO }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Source Repository**: \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Triggered By**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Event**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          echo "### Action" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type**: ${{ steps.params.outputs.action }}" >> $GITHUB_STEP_SUMMARY
-          
-          if [[ "${{ steps.params.outputs.action }}" == "freeze-version" || "${{ steps.params.outputs.action }}" == "both" ]]; then
-            echo "- **Release Version**: \`${{ steps.params.outputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Next Version**: \`${{ steps.params.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Version Scope**: \`${{ steps.params.outputs.version_scope || 'global navigation' }}\`" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Check the [${{ env.DOCS_REPO }}](https://github.com/${{ env.DOCS_REPO }}/actions) repository for the triggered workflow" >> $GITHUB_STEP_SUMMARY
-          echo "2. A pull request will be created for review" >> $GITHUB_STEP_SUMMARY
-          echo "3. Review and merge the PR to update the documentation" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ job.status }}" = "success" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo " **Documentation update triggered successfully!**" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "## Mintlifier Freeze Dispatch Summary"
+            echo ""
+            echo "- Documentation repository: \`${{ steps.inputs.outputs.docs_repo }}\`"
+            echo "- Source repository: \`${{ github.repository }}\`"
+            echo "- Frozen version: \`${{ steps.inputs.outputs.release_version }}\`"
+            echo "- Next development version: \`${{ steps.inputs.outputs.next_version }}\`"
+            echo "- Version scope: \`${{ steps.inputs.outputs.version_scope || 'global navigation' }}\`"
+            echo "- Supplemental native Mintlify checks: \`${{ steps.inputs.outputs.run_mintlify_checks }}\`"
+            echo ""
+            echo "Next step: check the docs repository Actions tab for the \`freeze-version\` repository dispatch run."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -17,6 +17,18 @@ Reference sources used:
 - **Inaccurate**: docs, examples, tests, or claims do not match implementation or current Mintlify behavior.
 - **Brittle**: works only for a narrow shape and can break valid projects.
 - **Generalize**: feature can be made more resilient across common Mintlify structures.
+- **Resolved**: addressed in the current branch after the original audit entry was written.
+
+## Workflow Native-Overlap Follow-Up
+
+Updated July 7, 2026.
+
+| Workflow | Status | Current direction |
+| --- | --- | --- |
+| `workflow-templates/freeze-version.yml` | Active / updated | Keep as the maintained Mintlifier workflow because Mintlify does not document a native filesystem version-freeze/snapshot operation. It now runs only Mintlifier freeze logic and optional supplemental `mint validate` / `mint broken-links` checks. |
+| `workflow-templates/external-repo-trigger.yml` | Active / partial overlap / updated | Keep as an optional cross-repository trigger for `freeze-version`; this remains useful when source repo releases should create a new docs version and navigation/project-structure snapshot. Prefer Mintlify Automations only when they fully cover the source-triggered workflow. |
+| `workflow-templates/sync-changelog.yml` | Active / partial overlap / updated | Keep as an optional historical changelog import/backfill workflow. Native Mintlify changelog pages and Automations overlap for ongoing drafting, but do not make this parser/import path obviously identical. |
+| `workflow-templates/docs-automation.yml` | Deprecated | The combined workflow mixed changelog backfill, release automation, and freezing. It is superseded by separate `freeze-version.yml`, `sync-changelog.yml`, plus native Mintlify Automations, GitHub App deployments, preview deployments, and CI checks. Kept as a non-mutating deprecation notice. |
 
 ## Priority Summary
 
@@ -30,7 +42,7 @@ Reference sources used:
 | MTL-006 | P1 | Inaccurate | README/CLI | README documents commands and flags that do not exist or are ignored. |
 | MTL-007 | P1 | Brittle | Versioning | Version parsing and path rewriting handle only narrow semver/path shapes. |
 | MTL-008 | P1 | Inaccurate | Tests | Main test suite fails and validates stale output assumptions. |
-| MTL-009 | P1 | Obsolete | Workflows | Workflow templates still update `mint.json` and use old version arrays. |
+| MTL-009 | P1 | Resolved | Workflows | Workflow templates were rewritten or deprecated around current `docs.json`, Mintlifier freeze behavior, and native Mintlify platform features. |
 | MTL-010 | P1 | Brittle | Multiple implementations | Versioning code paths disagree and duplicate behavior. |
 | MTL-011 | P2 | Generalize | CLI output | Run/deploy guidance does not use current Mintlify commands consistently. |
 | MTL-012 | P2 | Generalize | Project detection | Structure adapter misses valid current Mintlify layouts and product/version nesting. |
@@ -162,8 +174,9 @@ Reference sources used:
   - `scripts/version-manager.js:98` and `scripts/version-manager.js:125` require `vX.Y.Z`.
   - `scripts/version-manager.js:271` strips only full patch-version prefixes.
   - `lib/enhanced-versioning.js:51` requires major/minor/patch.
-  - `workflow-templates/docs-automation.yml:66` bumps versions with shell `awk`.
   - `/home/cordt/repos/docs/versions.json:17` uses `v0.53`; `:28` and `:29` use `v10.1.x` and `v8.5.x`.
+- **Workflow update**:
+  - Workflow templates no longer calculate next versions with shell `awk`; they accept explicit labels or default to `next`.
 - **Recommended adjustment**:
   - Accept common docs version labels such as `next`, `main`, `latest`, `v0.53`, `v8.5.x`, `v25`, pre-releases, and arbitrary product release channels.
   - Split "display label" from "sort key" and "filesystem path".
@@ -192,20 +205,21 @@ Reference sources used:
   - Validate generated `docs.json` against the current schema snapshot.
   - Add fixtures for flat, versioned, multilingual, product-scoped, and OpenAPI navigation.
 
-### MTL-009: Workflow Templates Still Target Legacy `mint.json`
+### MTL-009: Workflow Templates Rewritten Or Deprecated
 
 - **Priority**: P1
-- **Type**: Obsolete
-- **Files**: `workflow-templates/freeze-version.yml`, `workflow-templates/docs-automation.yml`, `workflow-templates/sync-changelog.yml`
-- **Evidence**:
-  - `workflow-templates/freeze-version.yml:141` updates `mint.json`.
-  - `workflow-templates/freeze-version.yml:146` reads `mint.json`.
-  - `workflow-templates/docs-automation.yml:241` updates `mint.json`.
-  - `workflow-templates/docs-automation.yml:244` reads `mint.json`.
-  - `workflow-templates/sync-changelog.yml:56` calls `./scripts/sync-changelog.sh`, while this repo contains `scripts/refresh-changelog.sh` and `scripts/parse-external-changelog.js`, not that exact script.
-- **Recommended adjustment**:
-  - Remove or rewrite templates around `docs.json`, current navigation, and the real scripts shipped by this package.
-  - Prefer invoking `npx mintlifier freeze --non-interactive ...` once that exists instead of duplicating freeze logic in YAML.
+- **Type**: Resolved
+- **Files**: `workflow-templates/freeze-version.yml`, `workflow-templates/docs-automation.yml`, `workflow-templates/sync-changelog.yml`, `workflow-templates/external-repo-trigger.yml`, `workflow-templates/README.md`
+- **Resolution**:
+  - `freeze-version.yml` is the active maintained template and invokes `npx mintlifier freeze --version --next-version --automated`, with optional `--scope`.
+  - `freeze-version.yml` no longer performs changelog sync or deployment work that Mintlify now owns natively.
+  - `sync-changelog.yml` remains active for historical markdown changelog import/backfill.
+  - `docs-automation.yml` is a non-mutating deprecation notice.
+  - `external-repo-trigger.yml` now dispatches only `freeze-version`.
+  - `workflow-templates/README.md` documents active, deprecated, and partial-overlap templates.
+- **Remaining consideration**:
+  - The actual versioning implementation is still tracked under MTL-010 for deeper consolidation.
+  - Native Mintlify validation is treated as supplemental until we test and confirm which local checks it can replace.
 
 ### MTL-010: Versioning Implementations Conflict
 
@@ -217,7 +231,8 @@ Reference sources used:
   - `scripts/version-manager.js:34` contains a JavaScript freeze implementation used by commands.
   - `lib/enhanced-versioning.js:16` generates another JavaScript manager with a different `versions/` directory model.
   - `lib/structure-adapter.js:12` has separate detection/adaptation logic.
-  - Workflow templates reimplement version freezing in shell/YAML.
+- **Workflow update**:
+  - Workflow templates now delegate version freezing to `npx mintlifier freeze` instead of reimplementing freeze behavior in shell/YAML.
 - **Recommended adjustment**:
   - Pick one versioning core library with pure functions for detection, planning, rewrite, and apply.
   - Put all CLI, generated scripts, and workflows through that one core.
@@ -363,19 +378,18 @@ Reference sources used:
   - Make `auto` a real non-interactive generator with explicit options and defaults.
   - Validate generated output before printing success.
 
-### MTL-021: Docs Mention External Changelog Sync But Scripts Are Not Cohesive
+### MTL-021: External Changelog Workflow Narrowed To Backfill
 
 - **Priority**: P3
-- **Type**: Brittle / Generalize
+- **Type**: Partial overlap / Generalize
 - **Files**: `workflow-templates/*`, `scripts/refresh-changelog.sh`, `scripts/parse-external-changelog.js`, `scripts/update-versions.js`
-- **Evidence**:
-  - Workflow templates invoke `scripts/sync-changelog.sh`, which is not present.
-  - README claims GitHub changelog sync at `README.md:12` and `README.md:113`.
-  - Versioning code paths refer to external changelog features but do not share a single implementation.
-- **Recommended adjustment**:
-  - Decide whether changelog sync is in scope.
-  - If yes, expose one command, one library path, and one workflow entrypoint with tests.
-  - If no, remove claims and templates.
+- **Resolution**:
+  - `workflow-templates/sync-changelog.yml` is now an optional historical import/backfill workflow.
+  - `scripts/parse-external-changelog.js` exports parser/generator functions and has characterization tests for common markdown changelog structures.
+  - `workflow-templates/docs-automation.yml` no longer performs changelog sync as part of a combined workflow.
+  - `workflow-templates/README.md` documents the difference between Mintlifier historical backfill and Mintlify-native ongoing changelog drafting.
+- **Remaining consideration**:
+  - Decide whether to keep the helper scripts long-term, but do not treat them as obsolete until we compare them against native Mintlify Automations on real historical changelogs.
 
 ### MTL-022: Local Documentation Contains Contradictory Schema Guidance
 
@@ -428,4 +442,3 @@ Reference sources used:
 4. Rewrite tests around deterministic fixtures and current schema validation.
 5. Update README, workflow templates, and self-doc scripts after behavior is current.
 6. Re-run dependency audit and decide whether to keep or replace `glob`.
-
