@@ -1,6 +1,6 @@
 {
   "name": "mintlifier",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Interactive CLI tool for building current Mintlify docs.json configurations with versioning helpers",
   "type": "module",
   "main": "index.js",
