@@ -139,7 +139,7 @@ Publishing is handled by GitHub Releases. Create a release tag that matches `pac
 Before the first automated publish, configure one npm authentication path:
 
 - Preferred: add an npm trusted publisher for package `mintlifier` that points at `Cordtus/mintlifier` and `.github/workflows/publish-npm.yml`.
-- Fallback: add a repository Actions secret named `NPM_TOKEN` with an npm automation token.
+- Fallback: add a repository Actions secret named `NPM_TOKEN` with an npm automation token that has read/write access to the unscoped `mintlifier` package, or to all packages owned by the maintainer account. A token limited to scoped `@cordtus/*` packages cannot publish `mintlifier`.
 
 If the workflow or package metadata changes after a failed release, bump `package.json` and create a new release. GitHub release workflows run from the workflow file committed at the release tag.
 
