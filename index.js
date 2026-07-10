@@ -18,7 +18,7 @@ import {
   planGeneratedPages,
   prefixNavigationPages
 } from './lib/page-planner.js';
-import { resolveWithin } from './lib/safe-path.js';
+import { resolveWithinWithoutSymlinks } from './lib/safe-path.js';
 import {
   STARTER_FAVICON_SVG,
   STARTER_LOGO_SVG,
@@ -627,26 +627,29 @@ export async function generateInteractiveProject(config, {
     delete cleanConfig._originalLogo;
     delete cleanConfig._originalLogos;
 
-    const pageDestinations = pages.map((page) => ({
+    const pageDestinations = await Promise.all(pages.map(async (page) => ({
       ...page,
-      destination: resolveWithin(resolvedOutput, page.relativePath, 'navigation page')
-    }));
+      destination: await resolveWithinWithoutSymlinks(resolvedOutput, page.relativePath, 'navigation page')
+    })));
     const faviconDestination = config.favicon && !config.favicon.startsWith('http')
-      ? resolveWithin(resolvedOutput, config.favicon, 'favicon path')
+      ? await resolveWithinWithoutSymlinks(resolvedOutput, config.favicon, 'favicon path')
       : null;
     const logoDestinations = typeof config.logo === 'string'
-      ? { single: resolveWithin(resolvedOutput, config.logo, 'logo path') }
+      ? { single: await resolveWithinWithoutSymlinks(resolvedOutput, config.logo, 'logo path') }
       : config.logo && typeof config.logo === 'object'
         ? {
-            light: config.logo.light ? resolveWithin(resolvedOutput, config.logo.light, 'light logo path') : null,
-            dark: config.logo.dark ? resolveWithin(resolvedOutput, config.logo.dark, 'dark logo path') : null
+            light: config.logo.light ? await resolveWithinWithoutSymlinks(resolvedOutput, config.logo.light, 'light logo path') : null,
+            dark: config.logo.dark ? await resolveWithinWithoutSymlinks(resolvedOutput, config.logo.dark, 'dark logo path') : null
           }
         : {};
-    const openapiDestinations = (Array.isArray(cleanConfig.api?.openapi)
+    const openapiReferences = (Array.isArray(cleanConfig.api?.openapi)
       ? cleanConfig.api.openapi
       : [cleanConfig.api?.openapi].filter(Boolean))
-      .filter((spec) => !spec.startsWith('http'))
-      .map((spec) => ({ spec, destination: resolveWithin(resolvedOutput, spec, 'OpenAPI path') }));
+      .filter((spec) => !spec.startsWith('http'));
+    const openapiDestinations = await Promise.all(openapiReferences.map(async (spec) => ({
+      spec,
+      destination: await resolveWithinWithoutSymlinks(resolvedOutput, spec, 'OpenAPI path')
+    })));
 
     await fs.ensureDir(resolvedOutput);
     await fs.writeJson(path.join(resolvedOutput, 'docs.json'), cleanConfig, { spaces: 2 });

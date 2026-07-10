@@ -56,6 +56,25 @@ test('interactive generation rejects asset traversal before writing the project'
   assert.equal(await fs.pathExists(path.join(root, 'outside.svg')), false);
 });
 
+test('interactive generation rejects asset paths through symlinked directories', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-init-'));
+  const output = path.join(root, 'site');
+  const outside = path.join(root, 'outside');
+  await fs.ensureDir(output);
+  await fs.ensureDir(outside);
+  await fs.symlink(outside, path.join(output, 'linked'));
+
+  await assert.rejects(
+    generateInteractiveProject({
+      navigation: { pages: ['intro'] },
+      favicon: 'linked/escaped.svg'
+    }, { outputDir: output, showProgress: false }),
+    /Invalid favicon path.*symbolic links/
+  );
+  assert.equal(await fs.pathExists(path.join(outside, 'escaped.svg')), false);
+  assert.deepEqual(await fs.readdir(output), ['linked']);
+});
+
 test('auto writes every local navigation page at the referenced path', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-auto-'));
   const output = path.join(root, 'site');

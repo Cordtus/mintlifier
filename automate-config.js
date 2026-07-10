@@ -10,7 +10,7 @@ import {
   planGeneratedPages,
   prefixNavigationPages
 } from './lib/page-planner.js';
-import { resolveWithin } from './lib/safe-path.js';
+import { resolveWithinWithoutSymlinks } from './lib/safe-path.js';
 import {
   STARTER_FAVICON_SVG,
   STARTER_LOGO_SVG,
@@ -57,7 +57,7 @@ async function writeStarterAssets(outputDir, config) {
   for (const spec of specs) {
     if (spec.startsWith('http://') || spec.startsWith('https://')) continue;
     await fs.outputJson(
-      resolveWithin(outputDir, spec, 'OpenAPI path'),
+      await resolveWithinWithoutSymlinks(outputDir, spec, 'OpenAPI path'),
       createStarterOpenApi(`${config.name} API`),
       { spaces: 2 }
     );
@@ -86,10 +86,10 @@ export async function generateAutomatedProject({
   const config = buildAutomatedDocsConfig({ name });
   config.navigation = prefixNavigationPages(config.navigation, 'docs');
   const pages = planGeneratedPages(config.navigation);
-  const pageDestinations = pages.map((page) => ({
+  const pageDestinations = await Promise.all(pages.map(async (page) => ({
     ...page,
-    destination: resolveWithin(resolvedOutput, page.relativePath, 'navigation page')
-  }));
+    destination: await resolveWithinWithoutSymlinks(resolvedOutput, page.relativePath, 'navigation page')
+  })));
 
   await fs.ensureDir(resolvedOutput);
   await fs.writeJson(path.join(resolvedOutput, 'docs.json'), config, { spaces: 2 });

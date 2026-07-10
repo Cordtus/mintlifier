@@ -138,7 +138,7 @@ test('applyScopedFreezePlan copies and rewrites only files in the selected scope
 
   await fs.outputFile(
     path.join(docsDir, 'evm/next/intro.mdx'),
-    '# Intro\n\n[Install](/evm/next/install "Install")\n\n[Query](/evm/next/install?mode=fast#usage \'Query\')\n\n[Local](./setup)\n\n[Shared](../shared/guide)\n\n[Logo](/images/logo.png)\n'
+    '# Intro\n\n[Install](/evm/next/install "Install")\n\n[Paren](/evm/next/install (Install))\n\n[Query](/evm/next/install?mode=fast#usage \'Query\')\n\n[Historical](/evm/v0.5.0/intro)\n\n[Local](./setup)\n\n[Shared](../shared/guide)\n\n[Logo](/images/logo.png)\n'
   );
   await fs.outputFile(path.join(docsDir, 'evm/next/install.mdx'), '# Install\n');
   await fs.outputFile(path.join(docsDir, 'sdks/next/javascript.mdx'), '# JavaScript SDK\n');
@@ -167,7 +167,9 @@ test('applyScopedFreezePlan copies and rewrites only files in the selected scope
 
   const frozenIntro = await fs.readFile(path.join(docsDir, 'evm/v0.6.0/intro.mdx'), 'utf8');
   assert.match(frozenIntro, /\[Install\]\(\/evm\/v0\.6\.0\/install "Install"\)/);
+  assert.match(frozenIntro, /\[Paren\]\(\/evm\/v0\.6\.0\/install \(Install\)\)/);
   assert.match(frozenIntro, /\[Query\]\(\/evm\/v0\.6\.0\/install\?mode=fast#usage 'Query'\)/);
+  assert.match(frozenIntro, /\[Historical\]\(\/evm\/v0\.5\.0\/intro\)/);
   assert.match(frozenIntro, /\[Local\]\(\.\/setup\)/);
   assert.match(frozenIntro, /\[Shared\]\(\.\.\/shared\/guide\)/);
   assert.match(frozenIntro, /\[Logo\]\(\/images\/logo\.png\)/);
@@ -346,7 +348,7 @@ test('scoped freeze rejects symbolic-link sources', async () => {
       versionsJsonPath: path.join(root, 'versions.json'),
       plan
     }),
-    /must not be a symbolic link/
+    /symbolic links are not allowed/
   );
 });
 

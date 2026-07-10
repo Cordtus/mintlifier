@@ -89,7 +89,7 @@ test('isSupportedVersionLabel accepts common documentation release labels', () =
     assert.equal(isSupportedVersionLabel(label), true, label);
   }
 
-  for (const label of ['', ' ', '../v1', 'v1/evil', 'release candidate']) {
+  for (const label of ['', ' ', '.', '..', '../v1', 'v1/evil', 'release candidate']) {
     assert.equal(isSupportedVersionLabel(label), false, label);
   }
 });

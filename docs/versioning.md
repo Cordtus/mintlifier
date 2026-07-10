@@ -143,7 +143,7 @@ Mintlifier refuses to overwrite any snapshot destination. Missing source pages, 
 
 Snapshot content is written in a temporary staging directory. Configuration and metadata are prepared separately and promoted only after the snapshot is ready. Failed operations remove staged or newly promoted files and retain the previous configuration and metadata.
 
-If a process is terminated outside Mintlifier's error handling, review `git status` before retrying. Remove only a confirmed incomplete, uncommitted snapshot; never remove an established frozen version to reuse its label.
+If the process is terminated, rerun the freeze command. Mintlifier detects its transaction journal, restores the previous configuration, removes partial snapshot files, and then starts the requested freeze. Review `git status` if recovery reports an error; do not remove an established frozen version to reuse its label.
 
 ## GitHub Actions
 
