@@ -62,6 +62,27 @@ test('working labels take precedence over a frozen default when metadata is miss
   assert.deepEqual(plan.updatedVersionsData.versions, ['v1.0.0']);
 });
 
+test('working-label inference also applies to scoped navigation', () => {
+  const docsConfig = {
+    navigation: {
+      dropdowns: [{
+        dropdown: 'API',
+        versions: [
+          { version: 'v1.0.0', default: true, pages: ['api/v1.0.0/intro'] },
+          { version: 'main', pages: ['api/main/intro'] }
+        ]
+      }]
+    }
+  };
+  const plan = buildVersionSetupPlan({
+    layout: {},
+    docsConfig,
+    workingVersion: 'next'
+  });
+  assert.equal(plan.updatedVersionsData.scopes['dropdown:api'].workingVersion, 'main');
+  assert.deepEqual(plan.updatedVersionsData.scopes['dropdown:api'].versions, ['v1.0.0']);
+});
+
 test('unversioned setup moves pages under the working label and keeps config in place', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-version-'));
   const config = {

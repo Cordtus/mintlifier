@@ -138,7 +138,7 @@ test('applyScopedFreezePlan copies and rewrites only files in the selected scope
 
   await fs.outputFile(
     path.join(docsDir, 'evm/next/intro.mdx'),
-    '# Intro\n\n[Install](/evm/next/install "Install")\n\n[Local](./setup)\n\n[Shared](../shared/guide)\n\n[Logo](/images/logo.png)\n'
+    '# Intro\n\n[Install](/evm/next/install "Install")\n\n[Query](/evm/next/install?mode=fast#usage \'Query\')\n\n[Local](./setup)\n\n[Shared](../shared/guide)\n\n[Logo](/images/logo.png)\n'
   );
   await fs.outputFile(path.join(docsDir, 'evm/next/install.mdx'), '# Install\n');
   await fs.outputFile(path.join(docsDir, 'sdks/next/javascript.mdx'), '# JavaScript SDK\n');
@@ -167,6 +167,7 @@ test('applyScopedFreezePlan copies and rewrites only files in the selected scope
 
   const frozenIntro = await fs.readFile(path.join(docsDir, 'evm/v0.6.0/intro.mdx'), 'utf8');
   assert.match(frozenIntro, /\[Install\]\(\/evm\/v0\.6\.0\/install "Install"\)/);
+  assert.match(frozenIntro, /\[Query\]\(\/evm\/v0\.6\.0\/install\?mode=fast#usage 'Query'\)/);
   assert.match(frozenIntro, /\[Local\]\(\.\/setup\)/);
   assert.match(frozenIntro, /\[Shared\]\(\.\.\/shared\/guide\)/);
   assert.match(frozenIntro, /\[Logo\]\(\/images\/logo\.png\)/);
@@ -320,6 +321,33 @@ test('scoped freeze rejects a non-file source before copying any page', async ()
     /Source page is not a file.*evm\/next\/install\.mdx/
   );
   assert.equal(await fs.pathExists(path.join(docsDir, 'evm/v0.6.0/intro.mdx')), false);
+});
+
+test('scoped freeze rejects symbolic-link sources', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-scoped-symlink-'));
+  const docsDir = path.join(root, 'docs');
+  await fs.outputFile(path.join(root, 'outside.mdx'), '# Outside\n');
+  await fs.ensureDir(path.join(docsDir, 'evm/next'));
+  await fs.symlink(path.join(root, 'outside.mdx'), path.join(docsDir, 'evm/next/intro.mdx'));
+  const docsConfig = productVersionedConfig();
+  const plan = buildScopedFreezePlan({
+    docsConfig,
+    versionsData: {},
+    scope: 'cosmos-evm',
+    currentVersion: 'v0.6.0',
+    nextVersion: 'next'
+  });
+  plan.fileCopies = [plan.fileCopies[0]];
+
+  await assert.rejects(
+    applyScopedFreezePlan({
+      docsDir,
+      docsJsonPath: path.join(root, 'docs.json'),
+      versionsJsonPath: path.join(root, 'versions.json'),
+      plan
+    }),
+    /must not be a symbolic link/
+  );
 });
 
 test('scoped freeze rejects traversal before copying any page', async () => {
