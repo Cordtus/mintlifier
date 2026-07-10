@@ -4,7 +4,7 @@ Mintlifier creates, edits, and versions Mintlify `docs.json` projects. It keeps 
 
 ## Requirements
 
-- Node.js 20.17.0 or newer
+- Node.js 20.17.0 through 24.x. Use an LTS release; the current Mintlify CLI rejects Node.js 25 and newer.
 - A directory for the documentation project
 
 Mintlifier complements the [Mintlify CLI](https://www.mintlify.com/docs/cli/commands), which provides local preview and validation.
