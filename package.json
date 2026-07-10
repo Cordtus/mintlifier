@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node index.js",
     "test": "node --test test/*.test.js",
-    "build-docs": "node scripts/build-docs.js"
+    "schema:refresh": "node scripts/refresh-schema.js"
   },
   "keywords": [
     "mintlify",
@@ -23,10 +23,7 @@
     "docs.json",
     "mdx",
     "openapi",
-    "swagger",
-    "gitbook",
-    "notion",
-    "docusaurus"
+    "swagger"
   ],
   "author": "Cordt <cordtus@gmail.com>",
   "license": "MIT",
@@ -48,16 +45,19 @@
   "engines": {
     "node": ">=20.17.0"
   },
+  "packageManager": "npm@11.18.0",
   "preferGlobal": false,
   "files": [
     "bin/",
     "index.js",
     "automate-config.js",
-    "lib/",
-    "scripts/",
-    "test/",
+    "lib/**/*.js",
+    "scripts/parse-external-changelog.js",
+    "scripts/refresh-changelog.sh",
     "workflow-templates/",
-    "schema.json",
+    "docs/commands.md",
+    "docs/versioning.md",
+    "docs/schema-compatibility.md",
     "docs-json-schema.json",
     "docs-json-schema.d.ts",
     "LICENSE",
