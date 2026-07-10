@@ -31,3 +31,6 @@ temp/
 
 # AI config (private)
 .claude
+
+# Local task worktrees
+.worktrees/
