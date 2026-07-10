@@ -192,3 +192,80 @@ test('applyScopedFreezePlan copies and rewrites only files in the selected scope
     nodeVersion: process.version
   });
 });
+
+test('scoped freeze detects every missing source before copying any page', async () => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-scoped-preflight-'));
+  const docsDir = path.join(projectRoot, 'docs');
+  const docsJsonPath = path.join(projectRoot, 'docs.json');
+  const versionsJsonPath = path.join(docsDir, 'versions.json');
+  const docsConfig = productVersionedConfig();
+  const versionsData = {
+    versionSchema: 2,
+    scopes: {
+      'dropdown:cosmos-evm': {
+        versions: ['v0.5.0'],
+        currentVersion: 'v0.5.0',
+        workingVersion: 'next',
+        defaultVersion: 'next'
+      }
+    }
+  };
+  await fs.outputFile(path.join(docsDir, 'evm/next/intro.mdx'), '# Intro\n');
+  await fs.writeJson(docsJsonPath, docsConfig);
+  await fs.writeJson(versionsJsonPath, versionsData);
+
+  const plan = buildScopedFreezePlan({
+    docsConfig,
+    versionsData,
+    scope: 'cosmos-evm',
+    currentVersion: 'v0.6.0',
+    nextVersion: 'next'
+  });
+
+  await assert.rejects(
+    applyScopedFreezePlan({ docsDir, docsJsonPath, versionsJsonPath, plan }),
+    /Source page not found.*evm\/next\/install\.mdx/
+  );
+  assert.equal(
+    await fs.pathExists(path.join(docsDir, 'evm/v0.6.0/intro.mdx')),
+    false
+  );
+  assert.deepEqual(await fs.readJson(docsJsonPath), docsConfig);
+  assert.deepEqual(await fs.readJson(versionsJsonPath), versionsData);
+});
+
+test('scoped freeze rejects a non-file source before copying any page', async () => {
+  const projectRoot = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-scoped-preflight-'));
+  const docsDir = path.join(projectRoot, 'docs');
+  const docsJsonPath = path.join(projectRoot, 'docs.json');
+  const versionsJsonPath = path.join(docsDir, 'versions.json');
+  const docsConfig = productVersionedConfig();
+  const versionsData = {
+    versionSchema: 2,
+    scopes: {
+      'dropdown:cosmos-evm': {
+        versions: ['v0.5.0'],
+        currentVersion: 'v0.5.0',
+        workingVersion: 'next',
+        defaultVersion: 'next'
+      }
+    }
+  };
+  await fs.outputFile(path.join(docsDir, 'evm/next/intro.mdx'), '# Intro\n');
+  await fs.ensureDir(path.join(docsDir, 'evm/next/install.mdx'));
+  await fs.writeJson(docsJsonPath, docsConfig);
+  await fs.writeJson(versionsJsonPath, versionsData);
+  const plan = buildScopedFreezePlan({
+    docsConfig,
+    versionsData,
+    scope: 'cosmos-evm',
+    currentVersion: 'v0.6.0',
+    nextVersion: 'next'
+  });
+
+  await assert.rejects(
+    applyScopedFreezePlan({ docsDir, docsJsonPath, versionsJsonPath, plan }),
+    /Source page is not a file.*evm\/next\/install\.mdx/
+  );
+  assert.equal(await fs.pathExists(path.join(docsDir, 'evm/v0.6.0/intro.mdx')), false);
+});

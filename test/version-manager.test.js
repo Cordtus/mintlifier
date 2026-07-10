@@ -9,6 +9,7 @@ import fs from 'fs-extra';
 import {
   applyVersionSetupPlan,
   buildVersionSetupPlan,
+  freezeVersion,
   setupVersioning
 } from '../lib/version-manager.js';
 import { resolveProjectLayout } from '../lib/project-layout.js';
@@ -118,4 +119,125 @@ test('setupVersioning repairs missing metadata for an already-versioned project'
     workingVersion: 'next',
     defaultVersion: 'v1.0.0'
   });
+});
+
+test('flat freeze copies the working pages and updates navigation and metadata', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-flat-freeze-'));
+  const docsConfig = {
+    navigation: {
+      versions: [{
+        version: 'next',
+        default: true,
+        pages: ['docs/next/intro', 'docs/next/setup']
+      }]
+    }
+  };
+  const versionsData = {
+    versions: [],
+    currentVersion: 'v1.0.0',
+    workingVersion: 'next',
+    defaultVersion: 'next'
+  };
+  await fs.writeJson(path.join(root, 'docs.json'), docsConfig);
+  await fs.outputFile(
+    path.join(root, 'docs/next/intro.mdx'),
+    '# Intro\n\n[Setup](/docs/next/setup)\n'
+  );
+  await fs.outputFile(path.join(root, 'docs/next/setup.mdx'), '# Setup\n');
+  await fs.writeJson(path.join(root, 'docs/versions.json'), versionsData);
+
+  const result = await freezeVersion({
+    cwd: root,
+    version: 'v1.0.0',
+    nextVersion: 'next',
+    yes: true,
+    nonInteractive: true,
+    now: new Date('2026-07-09T12:00:00.000Z')
+  });
+
+  assert.equal(result.copiedFiles, 2);
+  assert.equal(await fs.pathExists(path.join(root, 'docs/v1.0.0/intro.mdx')), true);
+  assert.match(
+    await fs.readFile(path.join(root, 'docs/v1.0.0/intro.mdx'), 'utf8'),
+    /\[Setup\]\(\/docs\/v1\.0\.0\/setup\)/
+  );
+  assert.deepEqual(
+    (await fs.readJson(path.join(root, 'docs.json'))).navigation.versions.map((entry) => entry.version),
+    ['next', 'v1.0.0']
+  );
+  assert.deepEqual(await fs.readJson(path.join(root, 'docs/versions.json')), {
+    versionSchema: 2,
+    scopes: {
+      root: {
+        versions: ['v1.0.0'],
+        currentVersion: 'next',
+        workingVersion: 'next',
+        defaultVersion: 'v1.0.0'
+      }
+    },
+    versions: ['v1.0.0'],
+    currentVersion: 'next',
+    workingVersion: 'next',
+    defaultVersion: 'v1.0.0'
+  });
+});
+
+test('dry-run validates a flat freeze without changing files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-flat-dry-run-'));
+  const docsConfig = {
+    navigation: {
+      versions: [{ version: 'next', default: true, pages: ['docs/next/intro'] }]
+    }
+  };
+  const versionsData = {
+    versions: [], currentVersion: 'v1.0.0', workingVersion: 'next', defaultVersion: 'next'
+  };
+  await fs.writeJson(path.join(root, 'docs.json'), docsConfig);
+  await fs.outputFile(path.join(root, 'docs/next/intro.mdx'), '# Intro\n');
+  await fs.writeJson(path.join(root, 'docs/versions.json'), versionsData);
+
+  const result = await freezeVersion({
+    cwd: root,
+    version: 'v1.0.0',
+    nextVersion: 'next',
+    dryRun: true,
+    nonInteractive: true
+  });
+
+  assert.equal(result.dryRun, true);
+  assert.equal(await fs.pathExists(path.join(root, 'docs/v1.0.0/intro.mdx')), false);
+  assert.deepEqual(await fs.readJson(path.join(root, 'docs.json')), docsConfig);
+  assert.deepEqual(await fs.readJson(path.join(root, 'docs/versions.json')), versionsData);
+});
+
+test('flat freeze rejects an existing snapshot without changing metadata', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-flat-existing-'));
+  const docsConfig = {
+    navigation: {
+      versions: [{ version: 'next', default: true, pages: ['docs/next/intro'] }]
+    }
+  };
+  const versionsData = {
+    versions: [], currentVersion: 'v1.0.0', workingVersion: 'next', defaultVersion: 'next'
+  };
+  await fs.writeJson(path.join(root, 'docs.json'), docsConfig);
+  await fs.outputFile(path.join(root, 'docs/next/intro.mdx'), '# Intro\n');
+  await fs.writeJson(path.join(root, 'docs/versions.json'), versionsData);
+  await fs.outputFile(path.join(root, 'docs/v1.0.0/intro.mdx'), '# Existing\n');
+
+  await assert.rejects(
+    freezeVersion({
+      cwd: root,
+      version: 'v1.0.0',
+      nextVersion: 'next',
+      yes: true,
+      nonInteractive: true
+    }),
+    /Frozen target already exists/
+  );
+  assert.equal(
+    await fs.readFile(path.join(root, 'docs/v1.0.0/intro.mdx'), 'utf8'),
+    '# Existing\n'
+  );
+  assert.deepEqual(await fs.readJson(path.join(root, 'docs/versions.json')), versionsData);
 });

@@ -6,7 +6,7 @@ import test from 'node:test';
 
 import fs from 'fs-extra';
 
-import { freezeVersion } from '../scripts/version-manager.js';
+import { freezeVersion } from '../lib/version-manager.js';
 
 function productVersionedConfig() {
   return {
@@ -64,7 +64,6 @@ function productVersionedConfig() {
 test('freezeVersion handles a non-interactive product-scoped freeze', async () => {
   const projectRoot = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-version-manager-'));
   const docsDir = path.join(projectRoot, 'docs');
-  const originalCwd = process.cwd();
 
   await fs.ensureDir(docsDir);
   await fs.writeJson(path.join(projectRoot, 'docs.json'), productVersionedConfig(), { spaces: 2 });
@@ -83,18 +82,14 @@ test('freezeVersion handles a non-interactive product-scoped freeze', async () =
   await fs.outputFile(path.join(docsDir, 'evm/next/install.mdx'), '# Install\n');
   await fs.outputFile(path.join(docsDir, 'sdks/next/javascript.mdx'), '# JavaScript SDK\n');
 
-  try {
-    process.chdir(projectRoot);
-    await freezeVersion({
-      scope: 'cosmos-evm',
-      version: 'v0.6.0',
-      nextVersion: 'next',
-      nonInteractive: true,
-      yes: true
-    });
-  } finally {
-    process.chdir(originalCwd);
-  }
+  await freezeVersion({
+    cwd: projectRoot,
+    scope: 'cosmos-evm',
+    version: 'v0.6.0',
+    nextVersion: 'next',
+    nonInteractive: true,
+    yes: true
+  });
 
   assert.equal(await fs.pathExists(path.join(docsDir, 'evm/v0.6.0/intro.mdx')), true);
   assert.equal(await fs.pathExists(path.join(docsDir, 'sdks/v0.6.0/javascript.mdx')), false);
