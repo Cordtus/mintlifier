@@ -19,6 +19,11 @@ import {
   prefixNavigationPages
 } from './lib/page-planner.js';
 import { resolveWithin } from './lib/safe-path.js';
+import {
+  STARTER_FAVICON_SVG,
+  STARTER_LOGO_SVG,
+  createStarterOpenApi
+} from './lib/starter-assets.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -676,10 +681,10 @@ Add your content here.
         if (await fs.pathExists(originalPath)) {
           await fs.copy(originalPath, faviconPath);
         } else if (!await fs.pathExists(faviconPath)) {
-          await fs.writeFile(faviconPath, '<!-- Add your favicon SVG here -->');
+          await fs.writeFile(faviconPath, STARTER_FAVICON_SVG);
         }
       } else if (!await fs.pathExists(faviconPath)) {
-        await fs.writeFile(faviconPath, '<!-- Add your favicon SVG here -->');
+        await fs.writeFile(faviconPath, STARTER_FAVICON_SVG);
       }
     }
 
@@ -695,10 +700,10 @@ Add your content here.
           if (await fs.pathExists(originalPath)) {
             await fs.copy(originalPath, logoPath);
           } else if (!await fs.pathExists(logoPath)) {
-            await fs.writeFile(logoPath, '<!-- Add your logo SVG here -->');
+            await fs.writeFile(logoPath, STARTER_LOGO_SVG);
           }
         } else if (!await fs.pathExists(logoPath)) {
-          await fs.writeFile(logoPath, '<!-- Add your logo SVG here -->');
+          await fs.writeFile(logoPath, STARTER_LOGO_SVG);
         }
       } else {
         // Handle dual logos
@@ -709,7 +714,7 @@ Add your content here.
           if (await fs.pathExists(originalLight)) {
             await fs.copy(originalLight, lightPath);
           } else if (!await fs.pathExists(lightPath)) {
-            await fs.writeFile(lightPath, '<!-- Add your light logo SVG here -->');
+            await fs.writeFile(lightPath, STARTER_LOGO_SVG);
           }
         }
 
@@ -720,7 +725,7 @@ Add your content here.
           if (await fs.pathExists(originalDark)) {
             await fs.copy(originalDark, darkPath);
           } else if (!await fs.pathExists(darkPath)) {
-            await fs.writeFile(darkPath, '<!-- Add your dark logo SVG here -->');
+            await fs.writeFile(darkPath, STARTER_LOGO_SVG);
           }
         }
       }
@@ -731,14 +736,7 @@ Add your content here.
       for (const { destination: specPath } of openapiDestinations) {
           await fs.ensureDir(path.dirname(specPath));
           if (!await fs.pathExists(specPath)) {
-            await fs.writeJson(specPath, {
-              openapi: '3.0.0',
-              info: {
-                title: 'Your API',
-                version: '1.0.0'
-              },
-              paths: {}
-            }, { spaces: 2 });
+            await fs.writeJson(specPath, createStarterOpenApi(), { spaces: 2 });
           }
       }
     }

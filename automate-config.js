@@ -11,6 +11,11 @@ import {
   prefixNavigationPages
 } from './lib/page-planner.js';
 import { resolveWithin } from './lib/safe-path.js';
+import {
+  STARTER_FAVICON_SVG,
+  STARTER_LOGO_SVG,
+  createStarterOpenApi
+} from './lib/starter-assets.js';
 
 function pageTitle(reference) {
   return path.basename(reference)
@@ -35,15 +40,15 @@ async function writeStarterAssets(outputDir, config) {
   await fs.ensureDir(path.join(outputDir, 'images'));
   await fs.outputFile(
     path.join(outputDir, 'favicon.svg'),
-    '<!-- Replace with your favicon SVG. -->'
+    STARTER_FAVICON_SVG
   );
   await fs.outputFile(
     path.join(outputDir, 'logo-light.svg'),
-    '<!-- Replace with your light logo SVG. -->'
+    STARTER_LOGO_SVG
   );
   await fs.outputFile(
     path.join(outputDir, 'logo-dark.svg'),
-    '<!-- Replace with your dark logo SVG. -->'
+    STARTER_LOGO_SVG
   );
 
   const specs = Array.isArray(config.api?.openapi)
@@ -51,11 +56,11 @@ async function writeStarterAssets(outputDir, config) {
     : [config.api?.openapi].filter(Boolean);
   for (const spec of specs) {
     if (spec.startsWith('http://') || spec.startsWith('https://')) continue;
-    await fs.outputJson(resolveWithin(outputDir, spec, 'OpenAPI path'), {
-      openapi: '3.0.0',
-      info: { title: `${config.name} API`, version: '1.0.0' },
-      paths: {}
-    }, { spaces: 2 });
+    await fs.outputJson(
+      resolveWithin(outputDir, spec, 'OpenAPI path'),
+      createStarterOpenApi(`${config.name} API`),
+      { spaces: 2 }
+    );
   }
 
   await fs.outputFile(path.join(outputDir, 'changelog', 'release-notes.mdx'), `---

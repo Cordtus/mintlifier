@@ -73,6 +73,12 @@ test('auto writes every local navigation page at the referenced path', async () 
     );
   }
   assert.equal(config.name, 'API Docs');
+  assert.match(await fs.readFile(path.join(output, 'favicon.svg'), 'utf8'), /^<svg/u);
+  assert.deepEqual(config.api.openapi, [
+    'openapi-v1.json',
+    'openapi-v2.json',
+    'openapi-internal.json'
+  ]);
 });
 
 test('auto refuses an existing output directory without changing it', async () => {
