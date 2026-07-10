@@ -820,8 +820,8 @@ async function main() {
           console.log(chalk.blue('🔧 Setting up versioning...'));
           try {
             const outputDir = process.cwd();
-            const { setupVersioning } = await import('./lib/versioning.js');
-            await setupVersioning(outputDir);
+            const { setupVersioning } = await import('./lib/version-manager.js');
+            await setupVersioning({ cwd: outputDir });
             console.log(chalk.green('\nDocumentation created with versioning enabled.'));
           } catch (versioningError) {
             console.log(chalk.red('\n❌ Versioning setup failed:'), versioningError.message);
