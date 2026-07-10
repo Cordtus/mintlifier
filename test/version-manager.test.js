@@ -121,6 +121,38 @@ test('setupVersioning repairs missing metadata for an already-versioned project'
   });
 });
 
+test('setupVersioning preserves product scopes while creating missing metadata', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-version-'));
+  const docsConfig = {
+    navigation: {
+      dropdowns: [{
+        dropdown: 'API',
+        versions: [
+          { version: 'next', default: true, pages: ['api/next/intro'] },
+          { version: 'v1.0.0', pages: ['api/v1.0.0/intro'] }
+        ]
+      }]
+    }
+  };
+  await fs.writeJson(path.join(root, 'docs.json'), docsConfig);
+  await fs.outputFile(path.join(root, 'docs/api/next/intro.mdx'), '# Intro\n');
+
+  await setupVersioning({ cwd: root, nonInteractive: true });
+
+  assert.deepEqual(await fs.readJson(path.join(root, 'docs.json')), docsConfig);
+  assert.deepEqual(await fs.readJson(path.join(root, 'docs/versions.json')), {
+    versionSchema: 2,
+    scopes: {
+      'dropdown:api': {
+        versions: ['v1.0.0'],
+        currentVersion: 'next',
+        workingVersion: 'next',
+        defaultVersion: 'v1.0.0'
+      }
+    }
+  });
+});
+
 test('flat freeze copies the working pages and updates navigation and metadata', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-flat-freeze-'));
   const docsConfig = {
