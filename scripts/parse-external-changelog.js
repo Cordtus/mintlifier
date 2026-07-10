@@ -1,11 +1,20 @@
 #!/usr/bin/env node
 
-import fs from 'fs-extra';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function parseExternalChangelog(content) {
   const lines = content.split('\n');
@@ -245,7 +254,7 @@ async function main(args = process.argv.slice(2)) {
   try {
     // Read the changelog
     const changelogPath = path.join(__dirname, '..', 'tmp', 'changelog.md');
-    if (!await fs.pathExists(changelogPath)) {
+    if (!await pathExists(changelogPath)) {
       console.error('Changelog file not found at tmp/changelog.md');
       process.exit(1);
     }
