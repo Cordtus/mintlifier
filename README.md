@@ -1,127 +1,150 @@
 # Mintlifier
 
-Interactive CLI for creating and updating Mintlify `docs.json` projects with the current Mintlify schema.
+Mintlifier creates, edits, and versions Mintlify `docs.json` projects. It keeps navigation and generated files aligned, normalizes older configuration fields, and can freeze immutable documentation snapshots for releases.
 
-## Features
+## Requirements
 
-- Interactive `docs.json` generator
-- Non-interactive starter project generator
-- Current Mintlify theme, appearance, API, navigation, contextual menu, and integrations fields
-- Legacy config normalization for older `mint.json`/early `docs.json` fields
-- Versioning helpers for flat `navigation.versions` projects and product-scoped nested versioning
+- Node.js 20.17.0 or newer
+- A directory for the documentation project
 
-## Installation
+Mintlifier complements the [Mintlify CLI](https://www.mintlify.com/docs/cli/commands), which provides local preview and validation.
 
-Mintlifier targets the current Mintlify CLI workflow, so use Node.js 20.17.0 or newer.
+## Install
+
+Run commands without installing the package globally:
 
 ```bash
-npx mintlifier <command>
-
-# Or install globally
-npm install -g mintlifier
+npx mintlifier --help
 ```
 
-## Commands
+Or install it:
 
 ```bash
+npm install --global mintlifier
+mintlifier --help
+```
+
+## Create a project
+
+### Interactive setup
+
+Run `init` from an empty project directory:
+
+```bash
+mkdir product-docs
+cd product-docs
 npx mintlifier init
+```
+
+The prompts cover branding, appearance, navigation, OpenAPI, footer links, analytics integrations, search, and contextual menu options. Mintlifier writes `docs.json`, creates referenced MDX pages under `docs/`, and adds placeholder asset or OpenAPI files when configured.
+
+If `docs.json` already exists, `init` offers to open the editor before offering an overwrite.
+
+### Non-interactive starter
+
+`auto` creates a neutral API documentation starter:
+
+```bash
 npx mintlifier auto --name "API Docs" --output docs-site
-npx mintlifier edit docs.json
-npx mintlifier versioning
-npx mintlifier freeze
 ```
 
-`freeze` also accepts non-interactive flags:
+The output directory must not exist. Mintlifier does not merge with or replace an existing directory.
+
+## Preview and validate
+
+Run Mintlify commands from the generated project:
 
 ```bash
-npx mintlifier freeze --version v1.0.0 --next-version v1.1.0 --automated
-```
-
-For product-scoped or nested versioning, pass the scope shown by `npx mintlifier versioning`:
-
-```bash
-npx mintlifier freeze --scope api-reference --version v2.3.0 --next-version next --automated
-npx mintlifier freeze --scope api-reference --version v2.3.0 --next-version next --dry-run
-```
-
-## Quick Start
-
-```bash
-mkdir my-docs
-cd my-docs
-npx mintlifier init
+cd docs-site
 npx mint@latest dev
-```
-
-Before publishing changes, run the Mintlify checks that matter for your project:
-
-```bash
 npx mint@latest validate
 npx mint@latest broken-links
 ```
 
-## Generated Layout
+`dev` starts the local preview. Run `validate` and `broken-links` before opening or merging documentation changes.
 
-Mintlifier creates a root `docs.json` and content files under `docs/`:
+## Edit an existing project
 
-```text
-project/
-├── docs.json
-├── docs/
-│   ├── introduction.mdx
-│   └── getting-started.mdx
-├── assets/
-└── snippets/
+Pass the configuration path directly:
+
+```bash
+npx mintlifier edit docs.json
 ```
 
-The generator keeps discovery flexible when editing existing projects, but new projects use this layout consistently.
+Without a path, Mintlifier checks common locations and asks which file to use when it finds more than one:
 
-## Current Schema Coverage
-
-Mintlifier generates current Mintlify fields such as:
-
-- `appearance.default` and `appearance.strict`
-- `background.color`, `background.decoration`, and `background.image`
-- `api.openapi`, `api.playground.display`, and `api.mdx`
-- `integrations.*`
-- `navbar.links` and `navbar.primary`
-- `navigation.pages`, `groups`, `tabs`, `versions`, `dropdowns`, and nested structures
-- `contextual.options`
-- `search.prompt`
-- `seo.metatags`
-- `redirects[].source` and `redirects[].destination`
-
-It intentionally no longer generates obsolete fields such as `layout`, `rounded`, `modeToggle`, top-level `openapi`, `analytics`, `feedback`, top-level `versions`, `topbarLinks`, or `topbarCtaButton`.
-
-## Versioning
-
-For a flat versioned Mintlify site, `navigation.versions` is supported:
-
-```json
-{
-  "navigation": {
-    "versions": [
-      {
-        "version": "next",
-        "default": true,
-        "pages": ["next/introduction"]
-      },
-      {
-        "version": "v1.0.0",
-        "pages": ["v1.0.0/introduction"]
-      }
-    ]
-  }
-}
+```bash
+npx mintlifier edit
 ```
 
-The freezer accepts path-safe labels such as `next`, `main`, `v1.0.0`, `v0.53`, and `v8.5.x`.
+The editor loads older Mintlify fields into the current structure and writes only when you choose **Save & Exit**. Review the diff because normalization can rename or remove obsolete fields.
 
-Product-scoped or nested versioning, such as versions under `navigation.dropdowns[].versions`, is supported by selecting a scope. Mintlifier freezes only the selected scope's pages and navigation node, leaving unrelated products and shared navigation untouched. Scoped metadata is stored under `versions.json.scopes`.
+## Version documentation
 
-## Migration Note
+Set up version metadata once:
 
-Mintlifier normalizes older Mintlify config fields when editing or saving, but it does not currently implement full GitBook, Notion, Docusaurus, or VuePress content migration commands.
+```bash
+npx mintlifier versioning
+```
+
+The command keeps `docs.json` in place, moves current pages beneath a working label such as `next`, and creates `versions.json` beside the documentation content. For an already-versioned project, it can create missing metadata without reorganizing the configuration.
+
+Preview a release snapshot:
+
+```bash
+npx mintlifier freeze \
+  --version v1.0.0 \
+  --next-version next \
+  --dry-run
+```
+
+Apply it:
+
+```bash
+npx mintlifier freeze \
+  --version v1.0.0 \
+  --next-version next \
+  --automated
+```
+
+For product-scoped navigation, list the available scopes and pass one to `freeze`:
+
+```bash
+npx mintlifier versioning
+npx mintlifier freeze \
+  --scope api-reference \
+  --version v2.3.0 \
+  --next-version next \
+  --dry-run
+```
+
+Frozen destinations are immutable. Mintlifier validates the full plan before writing, stages the snapshot, and updates navigation and metadata only after every page is ready.
+
+## Regular workflow
+
+1. Edit MDX content under the active version.
+2. Preview with `npx mint@latest dev`.
+3. Run `npx mint@latest validate` and `npx mint@latest broken-links`.
+4. Use `freeze --dry-run` before a release.
+5. Apply the freeze, review `docs.json`, `versions.json`, and the new snapshot, then commit them together.
+
+This keeps released documentation stable while current work continues under a predictable label such as `next`.
+
+## What Mintlifier changes
+
+- `init` and `auto` create `docs.json`, referenced MDX pages, and selected placeholders.
+- `edit` updates only the selected JSON configuration.
+- `versioning` may move referenced MDX pages into a working-version directory and updates their navigation paths.
+- `freeze` creates a new snapshot plus `.version-metadata.json`, then updates `docs.json` and `versions.json`.
+
+Mintlifier does not migrate content from GitBook, Notion, Docusaurus, or VuePress, and it does not deploy the site. Use Mintlify's Git integration for deployment and previews.
+
+## Documentation
+
+- [Command reference](docs/commands.md)
+- [Versioning workflow](docs/versioning.md)
+- [Schema compatibility](docs/schema-compatibility.md)
+- [Workflow templates](workflow-templates/README.md)
 
 ## Development
 
@@ -130,20 +153,10 @@ npm ci
 npm test
 ```
 
-`npm test` runs deterministic Node tests for schema normalization and versioning detection.
+Refresh the checked-in Mintlify schema snapshot with:
 
-## Releases
+```bash
+npm run schema:refresh
+```
 
-Publishing is handled by GitHub Releases. Create a release tag that matches `package.json`, such as `v2.1.1`; the `Publish npm package` workflow verifies the tag, runs tests, previews the package contents, and publishes to npm using npm trusted publishing.
-
-Before the first automated publish, configure one npm authentication path:
-
-- Preferred: add an npm trusted publisher for package `mintlifier` that points at `Cordtus/mintlifier` and `.github/workflows/publish-npm.yml`.
-- Fallback: add a repository Actions secret named `NPM_TOKEN` with an npm automation token that has read/write access to the unscoped `mintlifier` package, or to all packages owned by the maintainer account. A token limited to scoped `@cordtus/*` packages cannot publish `mintlifier`.
-
-If the workflow or package metadata changes after a failed release, bump `package.json` and create a new release. GitHub release workflows run from the workflow file committed at the release tag.
-
-## References
-
-- Mintlify docs: https://www.mintlify.com/docs
-- Current schema: https://mintlify.com/docs.json
+Maintainers should follow [RELEASING.md](RELEASING.md) before publishing a new version.

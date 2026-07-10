@@ -1,8 +1,4 @@
-# Workflow: Freeze Mintlifier Version Snapshot
-# Active template. Mintlify now owns deployments, preview builds, CI checks,
-# changelog drafting, and general content-maintenance automations. This workflow
-# only runs Mintlifier's filesystem version-freeze operation, which is still
-# unique to this tool.
+# Freeze a Mintlifier version snapshot and open a pull request.
 
 name: Freeze Mintlifier Version Snapshot
 
@@ -20,7 +16,7 @@ on:
         description: 'Versioned navigation scope for product-scoped docs'
         required: false
       run_mintlify_checks:
-        description: 'Run supplemental native Mintlify validation after freezing'
+        description: 'Run Mintlify validation after freezing'
         type: boolean
         default: false
 
@@ -120,7 +116,7 @@ jobs:
 
           echo "frozen=true" >> "$GITHUB_OUTPUT"
 
-      - name: Run supplemental native Mintlify checks
+      - name: Run Mintlify checks
         if: steps.inputs.outputs.run_mintlify_checks == 'true'
         shell: bash
         run: |
@@ -143,24 +139,18 @@ jobs:
           body: |
             ## Version Freeze
 
-            This PR freezes documentation at `${{ steps.inputs.outputs.release_version }}` and prepares `${{ steps.inputs.outputs.next_version }}` for continued development.
+            Frozen `${{ steps.inputs.outputs.release_version }}` and retained `${{ steps.inputs.outputs.next_version }}` for active development.
 
             ### Changes
-            - Created a frozen documentation snapshot through Mintlifier.
-            - Updated `docs.json` navigation for the frozen version.
-            - Updated `versions.json` metadata where applicable.
+            - Created the version snapshot.
+            - Updated `docs.json` and `versions.json`.
             - Scope: `${{ steps.inputs.outputs.scope_label }}`
-
-            ### Native Mintlify Platform Notes
-            - Mintlify GitHub App deployments and preview builds should handle publishing after merge.
-            - Mintlify CI checks can cover hosted lint/build checks.
-            - Mintlify Automations should handle changelog drafting and recurring content maintenance.
 
             ### Review Checklist
             - [ ] Version labels are correct.
             - [ ] Frozen docs render in the expected version selector or product scope.
             - [ ] Internal links in frozen docs point at the frozen version.
-            - [ ] Supplemental native Mintlify checks passed or were intentionally skipped.
+            - [ ] Mintlify checks passed or were intentionally skipped.
             - [ ] No unrelated files are included.
           branch: mintlifier-freeze-${{ steps.inputs.outputs.safe_version }}
           delete-branch: true
@@ -181,6 +171,6 @@ jobs:
             echo "- Frozen version: \`${{ steps.inputs.outputs.release_version }}\`"
             echo "- Next development version: \`${{ steps.inputs.outputs.next_version }}\`"
             echo "- Scope: \`${{ steps.inputs.outputs.scope_label }}\`"
-            echo "- Supplemental native Mintlify checks: \`${{ steps.inputs.outputs.run_mintlify_checks }}\`"
+            echo "- Mintlify checks: \`${{ steps.inputs.outputs.run_mintlify_checks }}\`"
             echo "- Pull request branch: \`mintlifier-freeze-${{ steps.inputs.outputs.safe_version }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

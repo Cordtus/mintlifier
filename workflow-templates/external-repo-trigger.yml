@@ -1,8 +1,4 @@
-# External Repository Workflow Template
-# Deploy this workflow in a source/project repository only when that repository
-# needs to trigger Mintlifier's version-freeze workflow in a separate docs repo.
-# For changelog drafting, source-code maintenance, and content updates, prefer
-# native Mintlify Automations connected to the source repository.
+# Dispatch a Mintlifier version freeze to a separate documentation repository.
 
 name: Trigger Mintlifier Version Freeze
 
@@ -26,7 +22,7 @@ on:
         description: 'Documentation repository, such as owner/docs'
         required: false
       run_mintlify_checks:
-        description: 'Ask the docs workflow to run supplemental native Mintlify validation'
+        description: 'Ask the docs workflow to run Mintlify validation'
         type: boolean
         default: false
 
@@ -136,7 +132,7 @@ jobs:
             echo "- Frozen version: \`${{ steps.inputs.outputs.release_version }}\`"
             echo "- Next development version: \`${{ steps.inputs.outputs.next_version }}\`"
             echo "- Version scope: \`${{ steps.inputs.outputs.version_scope || 'global navigation' }}\`"
-            echo "- Supplemental native Mintlify checks: \`${{ steps.inputs.outputs.run_mintlify_checks }}\`"
+            echo "- Mintlify checks: \`${{ steps.inputs.outputs.run_mintlify_checks }}\`"
             echo ""
             echo "Next step: check the docs repository Actions tab for the \`freeze-version\` repository dispatch run."
           } >> "$GITHUB_STEP_SUMMARY"
