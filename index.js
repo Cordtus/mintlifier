@@ -14,6 +14,16 @@ import {
   CURRENT_MINTLIFY_THEMES,
   normalizeDocsConfig
 } from './lib/current-mintlify.js';
+import {
+  planGeneratedPages,
+  prefixNavigationPages
+} from './lib/page-planner.js';
+import { resolveWithinWithoutSymlinks } from './lib/safe-path.js';
+import {
+  STARTER_FAVICON_SVG,
+  STARTER_LOGO_SVG,
+  createStarterOpenApi
+} from './lib/starter-assets.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -601,96 +611,71 @@ async function buildDocsConfig() {
   return normalizeDocsConfig(config);
 }
 
-async function generateProjectStructure(config) {
-  const spinner = ora('Generating project structure...').start();
+export async function generateInteractiveProject(config, {
+  outputDir = process.cwd(),
+  showProgress = true
+} = {}) {
+  const resolvedOutput = path.resolve(outputDir);
+  const spinner = showProgress ? ora('Generating project structure...').start() : null;
 
   try {
-    // Create output directory (project root)
-    const outputDir = process.cwd();
-    
-    // Create docs subdirectory for version-specific content
-    const docsDir = path.join(outputDir, 'docs');
-    await fs.ensureDir(docsDir);
-
-    // Clean config for docs.json (remove internal fields)
-    const cleanConfig = normalizeDocsConfig(config);
+    const generatedConfig = normalizeDocsConfig(config);
+    generatedConfig.navigation = prefixNavigationPages(generatedConfig.navigation, 'docs');
+    const pages = planGeneratedPages(generatedConfig.navigation);
+    const cleanConfig = normalizeDocsConfig(generatedConfig);
     delete cleanConfig._originalFavicon;
     delete cleanConfig._originalLogo;
     delete cleanConfig._originalLogos;
 
-    // Write docs.json to project root
-    await fs.writeJson(path.join(outputDir, 'docs.json'), cleanConfig, { spaces: 2 });
+    const pageDestinations = await Promise.all(pages.map(async (page) => ({
+      ...page,
+      destination: await resolveWithinWithoutSymlinks(resolvedOutput, page.relativePath, 'navigation page')
+    })));
+    const faviconDestination = config.favicon && !config.favicon.startsWith('http')
+      ? await resolveWithinWithoutSymlinks(resolvedOutput, config.favicon, 'favicon path')
+      : null;
+    const logoDestinations = typeof config.logo === 'string'
+      ? { single: await resolveWithinWithoutSymlinks(resolvedOutput, config.logo, 'logo path') }
+      : config.logo && typeof config.logo === 'object'
+        ? {
+            light: config.logo.light ? await resolveWithinWithoutSymlinks(resolvedOutput, config.logo.light, 'light logo path') : null,
+            dark: config.logo.dark ? await resolveWithinWithoutSymlinks(resolvedOutput, config.logo.dark, 'dark logo path') : null
+          }
+        : {};
+    const openapiReferences = (Array.isArray(cleanConfig.api?.openapi)
+      ? cleanConfig.api.openapi
+      : [cleanConfig.api?.openapi].filter(Boolean))
+      .filter((spec) => !spec.startsWith('http'));
+    const openapiDestinations = await Promise.all(openapiReferences.map(async (spec) => ({
+      spec,
+      destination: await resolveWithinWithoutSymlinks(resolvedOutput, spec, 'OpenAPI path')
+    })));
 
-    // Create directory structure based on navigation
-    const createPages = async (pages, baseDir = docsDir) => {
-      if (!pages) return;
-      for (const page of pages) {
-        if (typeof page === 'string') {
-          const pagePath = path.join(baseDir, `${page}.mdx`);
-          const dir = path.dirname(pagePath);
-          await fs.ensureDir(dir);
-          
-          const pageTitle = path.basename(page).replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          const content = `---
+    await fs.ensureDir(resolvedOutput);
+    await fs.writeJson(path.join(resolvedOutput, 'docs.json'), cleanConfig, { spaces: 2 });
+
+    for (const page of pageDestinations) {
+      const pagePath = page.destination;
+      const pageTitle = path.basename(page.reference)
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+      await fs.outputFile(pagePath, `---
 title: ${pageTitle}
-description: 'Add your description here'
+description: Add a short description.
 ---
 
 # ${pageTitle}
 
 Add your content here.
-`;
-          await fs.writeFile(pagePath, content);
-        }
-      }
-    };
-
-    const processGroups = async (groups, baseDir = docsDir) => {
-      if (!groups) return;
-      for (const group of groups) {
-        if (group.pages) {
-          await createPages(group.pages, baseDir);
-        }
-      }
-    };
-
-    if (config.navigation) {
-      // Handle different navigation structures
-      if (config.navigation.pages) {
-        await createPages(config.navigation.pages);
-      }
-      if (config.navigation.groups) {
-        await processGroups(config.navigation.groups);
-      }
-      if (config.navigation.tabs) {
-        for (const tab of config.navigation.tabs) {
-          if (tab.pages) await createPages(tab.pages);
-          if (tab.groups) await processGroups(tab.groups);
-        }
-      }
-      if (config.navigation.versions) {
-        for (const version of config.navigation.versions) {
-          const versionDir = path.join(docsDir, version.version);
-          await fs.ensureDir(versionDir);
-          if (version.pages) await createPages(version.pages, versionDir);
-          if (version.groups) await processGroups(version.groups, versionDir);
-          if (version.tabs) {
-            for (const tab of version.tabs) {
-              if (tab.pages) await createPages(tab.pages, versionDir);
-              if (tab.groups) await processGroups(tab.groups, versionDir);
-            }
-          }
-        }
-      }
+`);
     }
 
-    // Create assets and snippets directories at project root
-    await fs.ensureDir(path.join(outputDir, 'assets'));
-    await fs.ensureDir(path.join(outputDir, 'snippets'));
+    await fs.ensureDir(path.join(resolvedOutput, 'assets'));
+    await fs.ensureDir(path.join(resolvedOutput, 'snippets'));
 
     // Handle favicon
     if (config.favicon && !config.favicon.startsWith('http')) {
-      const faviconPath = path.join(outputDir, config.favicon.replace(/^\//, ''));
+      const faviconPath = faviconDestination;
       await fs.ensureDir(path.dirname(faviconPath));
 
       // Try to copy the original file if it exists
@@ -699,17 +684,17 @@ Add your content here.
         if (await fs.pathExists(originalPath)) {
           await fs.copy(originalPath, faviconPath);
         } else if (!await fs.pathExists(faviconPath)) {
-          await fs.writeFile(faviconPath, '<!-- Add your favicon SVG here -->');
+          await fs.writeFile(faviconPath, STARTER_FAVICON_SVG);
         }
       } else if (!await fs.pathExists(faviconPath)) {
-        await fs.writeFile(faviconPath, '<!-- Add your favicon SVG here -->');
+        await fs.writeFile(faviconPath, STARTER_FAVICON_SVG);
       }
     }
 
     // Handle logo files
     if (config.logo) {
       if (typeof config.logo === 'string') {
-        const logoPath = path.join(outputDir, config.logo.replace(/^\//, ''));
+        const logoPath = logoDestinations.single;
         await fs.ensureDir(path.dirname(logoPath));
 
         // Try to copy the original file if it exists
@@ -718,32 +703,32 @@ Add your content here.
           if (await fs.pathExists(originalPath)) {
             await fs.copy(originalPath, logoPath);
           } else if (!await fs.pathExists(logoPath)) {
-            await fs.writeFile(logoPath, '<!-- Add your logo SVG here -->');
+            await fs.writeFile(logoPath, STARTER_LOGO_SVG);
           }
         } else if (!await fs.pathExists(logoPath)) {
-          await fs.writeFile(logoPath, '<!-- Add your logo SVG here -->');
+          await fs.writeFile(logoPath, STARTER_LOGO_SVG);
         }
       } else {
         // Handle dual logos
         if (config.logo.light && config._originalLogos?.light) {
-          const lightPath = path.join(outputDir, config.logo.light.replace(/^\//, ''));
+          const lightPath = logoDestinations.light;
           await fs.ensureDir(path.dirname(lightPath));
           const originalLight = expandTildePath(config._originalLogos.light);
           if (await fs.pathExists(originalLight)) {
             await fs.copy(originalLight, lightPath);
           } else if (!await fs.pathExists(lightPath)) {
-            await fs.writeFile(lightPath, '<!-- Add your light logo SVG here -->');
+            await fs.writeFile(lightPath, STARTER_LOGO_SVG);
           }
         }
 
         if (config.logo.dark && config._originalLogos?.dark) {
-          const darkPath = path.join(outputDir, config.logo.dark.replace(/^\//, ''));
+          const darkPath = logoDestinations.dark;
           await fs.ensureDir(path.dirname(darkPath));
           const originalDark = expandTildePath(config._originalLogos.dark);
           if (await fs.pathExists(originalDark)) {
             await fs.copy(originalDark, darkPath);
           } else if (!await fs.pathExists(darkPath)) {
-            await fs.writeFile(darkPath, '<!-- Add your dark logo SVG here -->');
+            await fs.writeFile(darkPath, STARTER_LOGO_SVG);
           }
         }
       }
@@ -751,46 +736,30 @@ Add your content here.
 
     // Create OpenAPI spec placeholders
     if (cleanConfig.api?.openapi) {
-      const specs = Array.isArray(cleanConfig.api.openapi) ? cleanConfig.api.openapi : [cleanConfig.api.openapi];
-      for (const spec of specs) {
-        if (!spec.startsWith('http')) {
-          const specPath = path.join(outputDir, spec.replace(/^\//, ''));
+      for (const { destination: specPath } of openapiDestinations) {
           await fs.ensureDir(path.dirname(specPath));
           if (!await fs.pathExists(specPath)) {
-            await fs.writeJson(specPath, {
-              openapi: '3.0.0',
-              info: {
-                title: 'Your API',
-                version: '1.0.0'
-              },
-              paths: {}
-            }, { spaces: 2 });
+            await fs.writeJson(specPath, createStarterOpenApi(), { spaces: 2 });
           }
-        }
       }
     }
 
-    // Clean up any MDX issues that might cause parsing errors (skip for now to avoid hanging)
-    spinner.text = 'Finalizing files...';
-    // Note: MDX cleanup disabled during testing to avoid exec issues
-    // TODO: Re-enable for production with better error handling
+    spinner?.succeed('Project structure generated successfully');
 
-    spinner.succeed('Project structure generated successfully!');
+    if (showProgress) {
+      console.log(chalk.green('\nMintlify documentation project created.'));
+      console.log(chalk.cyan(`Location: ${resolvedOutput}`));
+      console.log(chalk.yellow('\nNext steps:'));
+      console.log('  1. npx mint@latest dev');
+      console.log('  2. npx mint@latest validate');
+      console.log('  3. npx mint@latest broken-links');
+    }
 
-    console.log(chalk.green('\n Mintlify documentation project created!'));
-    console.log(chalk.cyan(` Location: ${outputDir}`));
-    console.log(chalk.gray(` Structure: docs.json, assets/, snippets/, docs/{versions}/`));
-
-    console.log(chalk.yellow('\n Next steps:'));
-    console.log('  1. Run locally: npx mint@latest dev');
-    console.log('  2. Validate: npx mint@latest validate');
-    console.log('  3. Check links: npx mint@latest broken-links');
-    console.log(chalk.blue('\n Documentation: https://mintlify.com/docs'));
+    return { outputDir: resolvedOutput, pages, config: cleanConfig };
 
   } catch (error) {
-    spinner.fail('Failed to generate project structure');
-    console.error(chalk.red('Error:'), error.message);
-    process.exit(1);
+    spinner?.fail('Failed to generate project structure');
+    throw error;
   }
 }
 
@@ -856,7 +825,7 @@ async function main() {
       });
 
       if (proceed) {
-        await generateProjectStructure(config);
+        await generateInteractiveProject(config);
         
         // Prompt for versioning setup after project generation
         console.log(chalk.cyan('\nDocumentation versioning setup:'));
@@ -870,8 +839,8 @@ async function main() {
           console.log(chalk.blue('🔧 Setting up versioning...'));
           try {
             const outputDir = process.cwd();
-            const { setupVersioning } = await import('./lib/versioning.js');
-            await setupVersioning(outputDir);
+            const { setupVersioning } = await import('./lib/version-manager.js');
+            await setupVersioning({ cwd: outputDir });
             console.log(chalk.green('\nDocumentation created with versioning enabled.'));
           } catch (versioningError) {
             console.log(chalk.red('\n❌ Versioning setup failed:'), versioningError.message);

@@ -4,12 +4,30 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import chalk from 'chalk';
 import fs from 'fs-extra';
+import { renderCommandHelp } from '../lib/cli-options.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const args = process.argv.slice(2);
 const command = args[0];
+const COMMAND_ALIASES = {
+  init: 'init',
+  initialize: 'init',
+  new: 'init',
+  versioning: 'versioning',
+  version: 'versioning',
+  versions: 'versioning',
+  edit: 'edit',
+  modify: 'edit',
+  update: 'edit',
+  auto: 'auto',
+  automatic: 'auto',
+  generate: 'auto',
+  freeze: 'freeze',
+  release: 'freeze',
+  'version-freeze': 'freeze'
+};
 
 // Display help if no command provided or help requested
 if (!command || command === 'help' || command === '--help' || command === '-h') {
@@ -50,43 +68,39 @@ if (command === '--version' || command === '-v') {
   process.exit(0);
 }
 
+const canonicalCommand = COMMAND_ALIASES[command];
+if (canonicalCommand && args.slice(1).some((argument) => ['help', '--help', '-h'].includes(argument))) {
+  console.log(renderCommandHelp(canonicalCommand));
+  process.exit(0);
+}
+
 // Route to appropriate command handler
-switch (command) {
+switch (canonicalCommand) {
   case 'init':
-  case 'initialize':
-  case 'new':
     // Run the main configuration builder
     const { default: runInit } = await import('../lib/commands/init.js');
     await runInit(args.slice(1));
     break;
     
   case 'versioning':
-  case 'version':
-  case 'versions':
     // Run versioning setup
     const { default: runVersioning } = await import('../lib/commands/versioning.js');
     await runVersioning(args.slice(1));
     break;
     
   case 'edit':
-  case 'modify':
-  case 'update':
     // Run configuration editor
     const { default: runEdit } = await import('../lib/commands/edit.js');
     await runEdit(args.slice(1));
     break;
     
   case 'auto':
-  case 'automatic':
-  case 'generate':
     // Run automated configuration
     const { default: runAuto } = await import('../lib/commands/auto.js');
     await runAuto(args.slice(1));
     break;
     
   case 'freeze':
-  case 'release':
-  case 'version-freeze':
     // Freeze current version
     const { default: runFreeze } = await import('../lib/commands/freeze.js');
     await runFreeze(args.slice(1));

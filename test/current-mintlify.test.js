@@ -139,7 +139,7 @@ test('normalizeDocsConfig migrates legacy fields to current docs.json shape', ()
       href: '/'
     }
   ]);
-  assert.deepEqual(normalized.api.openapi, ['/openapi.json']);
+  assert.deepEqual(normalized.api.openapi, ['openapi.json']);
   assert.equal(normalized.api.mdx.server, 'https://api.example.com');
   assert.deepEqual(normalized.api.mdx.auth, { method: 'bearer' });
   assert.deepEqual(normalized.api.playground, {
@@ -211,9 +211,9 @@ test('buildAutomatedDocsConfig emits current schema fields only', () => {
   assert.equal(config.appearance.default, 'dark');
   assert.ok(config.navigation.groups.length > 0);
   assert.deepEqual(config.api.openapi, [
-    '/openapi-v1.json',
-    '/openapi-v2.json',
-    '/openapi-internal.json'
+    'openapi-v1.json',
+    'openapi-v2.json',
+    'openapi-internal.json'
   ]);
   assert.equal(Object.hasOwn(config, 'layout'), false);
   assert.equal(Object.hasOwn(config, 'rounded'), false);
