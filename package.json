@@ -39,7 +39,6 @@
     "@inquirer/prompts": "^7.8.3",
     "chalk": "^5.6.0",
     "fs-extra": "^11.3.1",
-    "glob": "^11.0.3",
     "ora": "^8.2.0"
   },
   "engines": {
@@ -53,6 +52,7 @@
     "automate-config.js",
     "lib/**/*.js",
     "scripts/parse-external-changelog.js",
+    "scripts/refresh-schema.js",
     "scripts/refresh-changelog.sh",
     "workflow-templates/",
     "docs/commands.md",

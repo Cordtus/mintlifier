@@ -18,6 +18,7 @@ import {
   planGeneratedPages,
   prefixNavigationPages
 } from './lib/page-planner.js';
+import { resolveWithin } from './lib/safe-path.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -621,11 +622,32 @@ export async function generateInteractiveProject(config, {
     delete cleanConfig._originalLogo;
     delete cleanConfig._originalLogos;
 
+    const pageDestinations = pages.map((page) => ({
+      ...page,
+      destination: resolveWithin(resolvedOutput, page.relativePath, 'navigation page')
+    }));
+    const faviconDestination = config.favicon && !config.favicon.startsWith('http')
+      ? resolveWithin(resolvedOutput, config.favicon, 'favicon path')
+      : null;
+    const logoDestinations = typeof config.logo === 'string'
+      ? { single: resolveWithin(resolvedOutput, config.logo, 'logo path') }
+      : config.logo && typeof config.logo === 'object'
+        ? {
+            light: config.logo.light ? resolveWithin(resolvedOutput, config.logo.light, 'light logo path') : null,
+            dark: config.logo.dark ? resolveWithin(resolvedOutput, config.logo.dark, 'dark logo path') : null
+          }
+        : {};
+    const openapiDestinations = (Array.isArray(cleanConfig.api?.openapi)
+      ? cleanConfig.api.openapi
+      : [cleanConfig.api?.openapi].filter(Boolean))
+      .filter((spec) => !spec.startsWith('http'))
+      .map((spec) => ({ spec, destination: resolveWithin(resolvedOutput, spec, 'OpenAPI path') }));
+
     await fs.ensureDir(resolvedOutput);
     await fs.writeJson(path.join(resolvedOutput, 'docs.json'), cleanConfig, { spaces: 2 });
 
-    for (const page of pages) {
-      const pagePath = path.join(resolvedOutput, page.relativePath);
+    for (const page of pageDestinations) {
+      const pagePath = page.destination;
       const pageTitle = path.basename(page.reference)
         .replace(/-/g, ' ')
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -645,7 +667,7 @@ Add your content here.
 
     // Handle favicon
     if (config.favicon && !config.favicon.startsWith('http')) {
-      const faviconPath = path.join(resolvedOutput, config.favicon.replace(/^\//, ''));
+      const faviconPath = faviconDestination;
       await fs.ensureDir(path.dirname(faviconPath));
 
       // Try to copy the original file if it exists
@@ -664,7 +686,7 @@ Add your content here.
     // Handle logo files
     if (config.logo) {
       if (typeof config.logo === 'string') {
-        const logoPath = path.join(resolvedOutput, config.logo.replace(/^\//, ''));
+        const logoPath = logoDestinations.single;
         await fs.ensureDir(path.dirname(logoPath));
 
         // Try to copy the original file if it exists
@@ -681,7 +703,7 @@ Add your content here.
       } else {
         // Handle dual logos
         if (config.logo.light && config._originalLogos?.light) {
-          const lightPath = path.join(resolvedOutput, config.logo.light.replace(/^\//, ''));
+          const lightPath = logoDestinations.light;
           await fs.ensureDir(path.dirname(lightPath));
           const originalLight = expandTildePath(config._originalLogos.light);
           if (await fs.pathExists(originalLight)) {
@@ -692,7 +714,7 @@ Add your content here.
         }
 
         if (config.logo.dark && config._originalLogos?.dark) {
-          const darkPath = path.join(resolvedOutput, config.logo.dark.replace(/^\//, ''));
+          const darkPath = logoDestinations.dark;
           await fs.ensureDir(path.dirname(darkPath));
           const originalDark = expandTildePath(config._originalLogos.dark);
           if (await fs.pathExists(originalDark)) {
@@ -706,10 +728,7 @@ Add your content here.
 
     // Create OpenAPI spec placeholders
     if (cleanConfig.api?.openapi) {
-      const specs = Array.isArray(cleanConfig.api.openapi) ? cleanConfig.api.openapi : [cleanConfig.api.openapi];
-      for (const spec of specs) {
-        if (!spec.startsWith('http')) {
-          const specPath = path.join(resolvedOutput, spec.replace(/^\//, ''));
+      for (const { destination: specPath } of openapiDestinations) {
           await fs.ensureDir(path.dirname(specPath));
           if (!await fs.pathExists(specPath)) {
             await fs.writeJson(specPath, {
@@ -721,7 +740,6 @@ Add your content here.
               paths: {}
             }, { spaces: 2 });
           }
-        }
       }
     }
 

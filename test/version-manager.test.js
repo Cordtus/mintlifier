@@ -44,6 +44,24 @@ test('already-versioned navigation can initialize missing metadata', async () =>
   assert.equal(await fs.pathExists(path.join(root, 'docs/docs.json')), false);
 });
 
+test('working labels take precedence over a frozen default when metadata is missing', () => {
+  const docsConfig = {
+    navigation: {
+      versions: [
+        { version: 'v1.0.0', default: true, pages: ['docs/v1.0.0/intro'] },
+        { version: 'main', pages: ['docs/main/intro'] }
+      ]
+    }
+  };
+  const plan = buildVersionSetupPlan({
+    layout: {},
+    docsConfig,
+    workingVersion: 'next'
+  });
+  assert.equal(plan.updatedVersionsData.workingVersion, 'main');
+  assert.deepEqual(plan.updatedVersionsData.versions, ['v1.0.0']);
+});
+
 test('unversioned setup moves pages under the working label and keeps config in place', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-version-'));
   const config = {
@@ -73,6 +91,20 @@ test('unversioned setup moves pages under the working label and keeps config in 
   assert.equal(await fs.pathExists(path.join(root, 'docs/next/intro.mdx')), true);
   assert.equal(await fs.pathExists(path.join(root, 'docs/next/nested/setup.mdx')), true);
   assert.equal(await fs.pathExists(path.join(root, 'docs.json.backup')), false);
+});
+
+test('version setup rejects page traversal before moving files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-version-'));
+  await fs.writeJson(path.join(root, 'docs.json'), { navigation: { pages: [] } });
+  const layout = await resolveProjectLayout({ cwd: root });
+  const plan = {
+    layout,
+    updatedDocsConfig: { navigation: { pages: [] } },
+    updatedVersionsData: {},
+    fileMoves: [{ source: '../outside.mdx', target: 'next/outside.mdx' }]
+  };
+
+  await assert.rejects(applyVersionSetupPlan(plan), /Invalid version source.*traversal/);
 });
 
 test('nested docs/docs.json setup does not create docs/docs', async () => {

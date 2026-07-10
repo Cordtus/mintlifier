@@ -40,6 +40,22 @@ test('interactive generation writes pages at its saved navigation paths', async 
   assert.equal(result.pages.length, 2);
 });
 
+test('interactive generation rejects asset traversal before writing the project', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-init-'));
+  const output = path.join(root, 'site');
+  const config = {
+    navigation: { pages: ['intro'] },
+    favicon: '../../outside.svg'
+  };
+
+  await assert.rejects(
+    generateInteractiveProject(config, { outputDir: output, showProgress: false }),
+    /Invalid favicon path.*traversal/
+  );
+  assert.equal(await fs.pathExists(output), false);
+  assert.equal(await fs.pathExists(path.join(root, 'outside.svg')), false);
+});
+
 test('auto writes every local navigation page at the referenced path', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mintlifier-auto-'));
   const output = path.join(root, 'site');

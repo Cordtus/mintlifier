@@ -10,6 +10,7 @@ import {
   planGeneratedPages,
   prefixNavigationPages
 } from './lib/page-planner.js';
+import { resolveWithin } from './lib/safe-path.js';
 
 function pageTitle(reference) {
   return path.basename(reference)
@@ -50,7 +51,7 @@ async function writeStarterAssets(outputDir, config) {
     : [config.api?.openapi].filter(Boolean);
   for (const spec of specs) {
     if (spec.startsWith('http://') || spec.startsWith('https://')) continue;
-    await fs.outputJson(path.join(outputDir, spec.replace(/^\/+/, '')), {
+    await fs.outputJson(resolveWithin(outputDir, spec, 'OpenAPI path'), {
       openapi: '3.0.0',
       info: { title: `${config.name} API`, version: '1.0.0' },
       paths: {}
@@ -80,11 +81,15 @@ export async function generateAutomatedProject({
   const config = buildAutomatedDocsConfig({ name });
   config.navigation = prefixNavigationPages(config.navigation, 'docs');
   const pages = planGeneratedPages(config.navigation);
+  const pageDestinations = pages.map((page) => ({
+    ...page,
+    destination: resolveWithin(resolvedOutput, page.relativePath, 'navigation page')
+  }));
 
   await fs.ensureDir(resolvedOutput);
   await fs.writeJson(path.join(resolvedOutput, 'docs.json'), config, { spaces: 2 });
-  for (const page of pages) {
-    await writeStarterPage(path.join(resolvedOutput, page.relativePath), page.reference);
+  for (const page of pageDestinations) {
+    await writeStarterPage(page.destination, page.reference);
   }
   await writeStarterAssets(resolvedOutput, config);
 

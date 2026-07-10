@@ -37,21 +37,33 @@ jobs:
       - name: Determine trigger inputs
         id: inputs
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          DEFAULT_NEXT_VERSION: ${{ vars.MINTLIFIER_NEXT_VERSION || 'next' }}
+          DEFAULT_VERSION_SCOPE: ${{ vars.MINTLIFIER_VERSION_SCOPE }}
+          DEFAULT_DOCS_REPO: ${{ vars.MINTLIFIER_DOCS_REPO }}
+          DEFAULT_RUN_CHECKS: ${{ vars.MINTLIFIER_RUN_MINTLIFY_CHECKS || 'false' }}
+          MANUAL_RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+          MANUAL_NEXT_VERSION: ${{ github.event.inputs.next_version }}
+          MANUAL_VERSION_SCOPE: ${{ github.event.inputs.version_scope }}
+          MANUAL_DOCS_REPO: ${{ github.event.inputs.docs_repo }}
+          MANUAL_RUN_CHECKS: ${{ github.event.inputs.run_mintlify_checks }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "release" ]; then
-            RELEASE_VERSION="${{ github.event.release.tag_name }}"
-            NEXT_VERSION="${{ vars.MINTLIFIER_NEXT_VERSION || 'next' }}"
-            VERSION_SCOPE="${{ vars.MINTLIFIER_VERSION_SCOPE }}"
-            DOCS_REPO="${{ vars.MINTLIFIER_DOCS_REPO }}"
-            RUN_MINTLIFY_CHECKS="${{ vars.MINTLIFIER_RUN_MINTLIFY_CHECKS || 'false' }}"
+          if [ "$EVENT_NAME" = "release" ]; then
+            RELEASE_VERSION="$RELEASE_TAG"
+            NEXT_VERSION="$DEFAULT_NEXT_VERSION"
+            VERSION_SCOPE="$DEFAULT_VERSION_SCOPE"
+            DOCS_REPO="$DEFAULT_DOCS_REPO"
+            RUN_MINTLIFY_CHECKS="$DEFAULT_RUN_CHECKS"
           else
-            RELEASE_VERSION="${{ github.event.inputs.release_version }}"
-            NEXT_VERSION="${{ github.event.inputs.next_version }}"
-            VERSION_SCOPE="${{ github.event.inputs.version_scope }}"
-            DOCS_REPO="${{ github.event.inputs.docs_repo || vars.MINTLIFIER_DOCS_REPO }}"
-            RUN_MINTLIFY_CHECKS="${{ github.event.inputs.run_mintlify_checks }}"
+            RELEASE_VERSION="$MANUAL_RELEASE_VERSION"
+            NEXT_VERSION="$MANUAL_NEXT_VERSION"
+            VERSION_SCOPE="$MANUAL_VERSION_SCOPE"
+            DOCS_REPO="${MANUAL_DOCS_REPO:-$DEFAULT_DOCS_REPO}"
+            RUN_MINTLIFY_CHECKS="$MANUAL_RUN_CHECKS"
           fi
 
           NEXT_VERSION="${NEXT_VERSION:-next}"
@@ -72,6 +84,14 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "$RELEASE_VERSION" =~ ^[A-Za-z0-9._-]+$ ]] ||
+             [[ ! "$NEXT_VERSION" =~ ^[A-Za-z0-9._-]+$ ]] ||
+             [[ ! "$VERSION_SCOPE" =~ ^[A-Za-z0-9._:-]*$ ]] ||
+             [[ ! "$DOCS_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Invalid version, scope, or docs repository input" >&2
+            exit 1
+          fi
+
           if [ "$RUN_MINTLIFY_CHECKS" != "true" ] && [ "$RUN_MINTLIFY_CHECKS" != "false" ]; then
             echo "run_mintlify_checks must be true or false" >&2
             exit 1
@@ -87,18 +107,29 @@ jobs:
 
       - name: Dispatch docs repository freeze workflow
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.inputs.outputs.release_version }}
+          NEXT_VERSION: ${{ steps.inputs.outputs.next_version }}
+          VERSION_SCOPE: ${{ steps.inputs.outputs.version_scope }}
+          RUN_MINTLIFY_CHECKS: ${{ steps.inputs.outputs.run_mintlify_checks }}
+          DOCS_REPO: ${{ steps.inputs.outputs.docs_repo }}
+          SOURCE_REPO: ${{ github.repository }}
+          TRIGGERED_BY: ${{ github.actor }}
+          TRIGGER_WORKFLOW: ${{ github.workflow }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
 
           PAYLOAD="$(jq -n \
-            --arg release_version "${{ steps.inputs.outputs.release_version }}" \
-            --arg next_version "${{ steps.inputs.outputs.next_version }}" \
-            --arg version_scope "${{ steps.inputs.outputs.version_scope }}" \
-            --arg run_mintlify_checks "${{ steps.inputs.outputs.run_mintlify_checks }}" \
-            --arg source_repo "${{ github.repository }}" \
-            --arg triggered_by "${{ github.actor }}" \
-            --arg trigger_workflow "${{ github.workflow }}" \
-            --arg trigger_run "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --arg release_version "$RELEASE_VERSION" \
+            --arg next_version "$NEXT_VERSION" \
+            --arg version_scope "$VERSION_SCOPE" \
+            --arg run_mintlify_checks "$RUN_MINTLIFY_CHECKS" \
+            --arg source_repo "$SOURCE_REPO" \
+            --arg triggered_by "$TRIGGERED_BY" \
+            --arg trigger_workflow "$TRIGGER_WORKFLOW" \
+            --arg trigger_run "$SERVER_URL/$SOURCE_REPO/actions/runs/$RUN_ID" \
             '{
               event_type: "freeze-version",
               client_payload: {
@@ -117,22 +148,29 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $DOCS_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${{ steps.inputs.outputs.docs_repo }}/dispatches" \
+            "https://api.github.com/repos/$DOCS_REPO/dispatches" \
             -d "$PAYLOAD"
 
       - name: Summary
         if: always()
         shell: bash
+        env:
+          DOCS_REPO: ${{ steps.inputs.outputs.docs_repo }}
+          SOURCE_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ steps.inputs.outputs.release_version }}
+          NEXT_VERSION: ${{ steps.inputs.outputs.next_version }}
+          VERSION_SCOPE: ${{ steps.inputs.outputs.version_scope || 'global navigation' }}
+          RUN_MINTLIFY_CHECKS: ${{ steps.inputs.outputs.run_mintlify_checks }}
         run: |
           {
             echo "## Mintlifier Freeze Dispatch Summary"
             echo ""
-            echo "- Documentation repository: \`${{ steps.inputs.outputs.docs_repo }}\`"
-            echo "- Source repository: \`${{ github.repository }}\`"
-            echo "- Frozen version: \`${{ steps.inputs.outputs.release_version }}\`"
-            echo "- Next development version: \`${{ steps.inputs.outputs.next_version }}\`"
-            echo "- Version scope: \`${{ steps.inputs.outputs.version_scope || 'global navigation' }}\`"
-            echo "- Mintlify checks: \`${{ steps.inputs.outputs.run_mintlify_checks }}\`"
+            echo "- Documentation repository: \`$DOCS_REPO\`"
+            echo "- Source repository: \`$SOURCE_REPO\`"
+            echo "- Frozen version: \`$RELEASE_VERSION\`"
+            echo "- Next development version: \`$NEXT_VERSION\`"
+            echo "- Version scope: \`$VERSION_SCOPE\`"
+            echo "- Mintlify checks: \`$RUN_MINTLIFY_CHECKS\`"
             echo ""
             echo "Next step: check the docs repository Actions tab for the \`freeze-version\` repository dispatch run."
           } >> "$GITHUB_STEP_SUMMARY"

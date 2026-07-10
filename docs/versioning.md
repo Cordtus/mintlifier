@@ -93,6 +93,8 @@ Mintlifier:
 
 Only pages reachable from the selected working-version navigation node are copied. A scoped freeze leaves other products and shared navigation unchanged.
 
+Mintlifier records the operation in `.mintlifier-freeze-transaction.json`. If the process stops mid-freeze, the next freeze restores the original configuration and removes partial snapshot files before continuing. The journal is removed after cleanup.
+
 ## Review and validate changes
 
 Inspect the complete change before committing:

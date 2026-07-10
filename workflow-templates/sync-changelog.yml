@@ -49,17 +49,25 @@ jobs:
       - name: Determine changelog source
         id: source
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SOURCE_VERSION: ${{ github.event.client_payload.source_version }}
+          DISPATCH_SOURCE_REPO: ${{ github.event.client_payload.source_repo }}
+          DISPATCH_RUN_CHECKS: ${{ github.event.client_payload.run_mintlify_checks }}
+          MANUAL_SOURCE_VERSION: ${{ github.event.inputs.source_version }}
+          MANUAL_SOURCE_REPO: ${{ github.event.inputs.source_repo }}
+          MANUAL_RUN_CHECKS: ${{ github.event.inputs.run_mintlify_checks }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            SOURCE_VERSION="${{ github.event.client_payload.source_version }}"
-            SOURCE_REPO="${{ github.event.client_payload.source_repo }}"
-            RUN_MINTLIFY_CHECKS="${{ github.event.client_payload.run_mintlify_checks }}"
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            SOURCE_VERSION="$DISPATCH_SOURCE_VERSION"
+            SOURCE_REPO="$DISPATCH_SOURCE_REPO"
+            RUN_MINTLIFY_CHECKS="$DISPATCH_RUN_CHECKS"
           else
-            SOURCE_VERSION="${{ github.event.inputs.source_version }}"
-            SOURCE_REPO="${{ github.event.inputs.source_repo }}"
-            RUN_MINTLIFY_CHECKS="${{ github.event.inputs.run_mintlify_checks }}"
+            SOURCE_VERSION="$MANUAL_SOURCE_VERSION"
+            SOURCE_REPO="$MANUAL_SOURCE_REPO"
+            RUN_MINTLIFY_CHECKS="$MANUAL_RUN_CHECKS"
           fi
 
           SOURCE_VERSION="${SOURCE_VERSION:-latest}"
@@ -68,6 +76,12 @@ jobs:
 
           if [ -z "$SOURCE_REPO" ]; then
             echo "source_repo is required, or set the CHANGELOG_SOURCE_REPO repository variable" >&2
+            exit 1
+          fi
+
+          if [[ ! "$SOURCE_VERSION" =~ ^[A-Za-z0-9._/-]+$ ]] ||
+             [[ ! "$SOURCE_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Invalid source version or repository" >&2
             exit 1
           fi
 
@@ -88,12 +102,15 @@ jobs:
       - name: Import changelog
         id: import
         shell: bash
+        env:
+          SOURCE_REPO: ${{ steps.source.outputs.source_repo }}
+          SOURCE_VERSION: ${{ steps.source.outputs.source_version }}
         run: |
           set -euo pipefail
 
           ./scripts/refresh-changelog.sh \
-            "${{ steps.source.outputs.source_repo }}" \
-            "${{ steps.source.outputs.source_version }}"
+            "$SOURCE_REPO" \
+            "$SOURCE_VERSION"
 
           if [ -n "$(git status --porcelain docs/changelog/release-notes.mdx)" ]; then
             VERSION_COUNT="$(grep -c '<Update' docs/changelog/release-notes.mdx || true)"
@@ -146,13 +163,19 @@ jobs:
       - name: Summary
         if: always()
         shell: bash
+        env:
+          SOURCE_REPO: ${{ steps.source.outputs.source_repo }}
+          SOURCE_VERSION: ${{ steps.source.outputs.source_version }}
+          VERSION_COUNT: ${{ steps.import.outputs.version_count || '0' }}
+          HAS_CHANGES: ${{ steps.import.outputs.has_changes || 'false' }}
+          RUN_MINTLIFY_CHECKS: ${{ steps.source.outputs.run_mintlify_checks }}
         run: |
           {
             echo "## Changelog Import Summary"
             echo ""
-            echo "- Source repository: \`${{ steps.source.outputs.source_repo }}\`"
-            echo "- Source version: \`${{ steps.source.outputs.source_version }}\`"
-            echo "- Imported versions: \`${{ steps.import.outputs.version_count || '0' }}\`"
-            echo "- Changes detected: \`${{ steps.import.outputs.has_changes || 'false' }}\`"
-            echo "- Supplemental Mintlify checks: \`${{ steps.source.outputs.run_mintlify_checks }}\`"
+            echo "- Source repository: \`$SOURCE_REPO\`"
+            echo "- Source version: \`$SOURCE_VERSION\`"
+            echo "- Imported versions: \`$VERSION_COUNT\`"
+            echo "- Changes detected: \`$HAS_CHANGES\`"
+            echo "- Supplemental Mintlify checks: \`$RUN_MINTLIFY_CHECKS\`"
           } >> "$GITHUB_STEP_SUMMARY"
